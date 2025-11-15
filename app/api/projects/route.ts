@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { supabaseAdmin } from '@/lib/supabase/service';
+import { waitUntil } from '@vercel/functions';
+import { headers } from 'next/headers';
 import { runProjectPipeline } from '@/lib/pipeline-overrides/pipeline';
 
 const requestSchema = z.object({
@@ -62,9 +64,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  runProjectPipeline({ projectId: data.id }).catch((pipelineError) => {
-    console.error('runProjectPipeline failed', pipelineError);
-  });
+  const headerStore = headers();
+  const requestId = headerStore.get('x-vercel-id') ?? null;
+
+  waitUntil(
+    runProjectPipeline({ projectId: data.id, requestId }).catch((pipelineError) => {
+      console.error('runProjectPipeline failed', pipelineError);
+    })
+  );
 
   return NextResponse.json({ id: data.id, status: 'queued' }, { status: 202 });
 }

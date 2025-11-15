@@ -26,6 +26,7 @@ type Depth = 'quick' | 'standard' | 'deep';
 
 interface RunProjectPipelineArgs {
   projectId: string;
+  requestId?: string | null;
 }
 
 type TaskGraph = Record<string, unknown>;
@@ -89,7 +90,7 @@ const MIRROR_TEMPLATES = ['https://r.jina.ai/{{raw}}'];
 const MIN_RELEVANCE_TOKEN_LENGTH = 3;
 const DEFAULT_RELEVANCE_SCORE = 0.4;
 
-export async function runProjectPipeline({ projectId }: RunProjectPipelineArgs) {
+export async function runProjectPipeline({ projectId, requestId }: RunProjectPipelineArgs) {
   const { project, profile } = await loadProjectContext(projectId);
   const { title, query } = project;
   const depth = (project.depth ?? 'standard') as Depth;
@@ -99,12 +100,12 @@ export async function runProjectPipeline({ projectId }: RunProjectPipelineArgs) 
   await ensureSourceTelemetryColumns();
 
   try {
-    console.log(`[pipeline] ${projectId} planner start`);
+    console.log(`[pipeline] ${projectId} planner start${requestId ? ` (req ${requestId})` : ''}`);
     const taskGraph = await buildTaskGraph(query, llmOverrides);
     await supabaseAdmin.from('projects').update({ task_graph: taskGraph as Json }).eq('id', projectId);
     console.log(`[pipeline] ${projectId} planner done`);
     const searchResults = await searchWeb(query, { limit: SOURCE_LIMIT[depth] });
-    console.log(`[pipeline] ${projectId} search returned ${searchResults.length} results`);
+    console.log(`[pipeline] ${projectId} search returned ${searchResults.length} results${requestId ? ` (req ${requestId})` : ''}`);
 
     const modelRegistry = await loadModelSourceRegistry();
     await refreshModelFeeds(modelRegistry);
