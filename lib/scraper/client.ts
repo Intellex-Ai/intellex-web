@@ -1,6 +1,9 @@
+type ScraperStrategy = 'direct' | 'proxy' | 'mirror' | 'alt';
+
 interface FetchArgs {
   url: string;
   timeoutMs?: number;
+  strategy?: ScraperStrategy;
 }
 
 interface FetchResult {
@@ -10,7 +13,7 @@ interface FetchResult {
   error?: string;
 }
 
-export async function invokeScraper({ url, timeoutMs = 20_000 }: FetchArgs): Promise<FetchResult> {
+export async function invokeScraper({ url, timeoutMs = 20_000, strategy = 'direct' }: FetchArgs): Promise<FetchResult> {
   const invokeUrl = process.env.SCRAPER_INVOKE_URL;
   const token = process.env.SCRAPER_TOKEN;
 
@@ -28,7 +31,7 @@ export async function invokeScraper({ url, timeoutMs = 20_000 }: FetchArgs): Pro
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`
       },
-      body: JSON.stringify({ url }),
+      body: JSON.stringify({ url, strategy }),
       signal: controller.signal
     });
 
@@ -38,6 +41,14 @@ export async function invokeScraper({ url, timeoutMs = 20_000 }: FetchArgs): Pro
 
     const json = (await response.json()) as FetchResult;
     return json;
+  } catch (error) {
+    const isAbortError = error instanceof Error && error.name === 'AbortError';
+    const message = isAbortError
+      ? `Scraper request timed out after ${timeoutMs}ms`
+      : error instanceof Error
+        ? error.message
+        : 'Unknown scraper error';
+    return { ok: false, status: isAbortError ? 408 : 0, error: message };
   } finally {
     clearTimeout(timeout);
   }
