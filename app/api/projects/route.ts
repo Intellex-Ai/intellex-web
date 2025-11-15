@@ -62,19 +62,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  try {
-    setImmediate(() => {
-      runProjectPipeline({ projectId: data.id }).catch((pipelineError) => {
-        console.error('runProjectPipeline failed', pipelineError);
-      });
-    });
-  } catch (pipelineError) {
-    console.error('failed to schedule pipeline', pipelineError);
-    return NextResponse.json(
-      { id: data.id, status: 'error', error: (pipelineError as Error).message },
-      { status: 500 }
-    );
-  }
+  runProjectPipeline({ projectId: data.id }).catch((pipelineError) => {
+    console.error('runProjectPipeline failed', pipelineError);
+  });
 
   return NextResponse.json({ id: data.id, status: 'queued' }, { status: 202 });
 }
