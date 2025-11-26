@@ -90,7 +90,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                                     <ReactMarkdown
                                         remarkPlugins={[remarkGfm]}
                                         components={{
-                                            code({ node, inline, className, children, ...props }: any) {
+                                            code({ node: _node, inline, className: _className, children, ...props }: any) { // eslint-disable-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
                                                 return !inline ? (
                                                     <div className="bg-[#111] p-3 rounded-sm border border-border my-2 overflow-x-auto font-mono text-xs">
                                                         <code {...props}>{children}</code>

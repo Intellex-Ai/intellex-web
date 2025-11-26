@@ -4,14 +4,14 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { VideoBackground } from '@/components/ui/VideoBackground';
+import { CinematicBackground } from '@/components/ui/CinematicBackground';
 import { TextScramble } from '@/components/ui/TextScramble';
 import { motion } from 'framer-motion';
 
 export default function Hero() {
     return (
         <section className="relative min-h-screen flex items-center justify-center px-8 overflow-hidden md:px-4">
-            <VideoBackground />
+            <CinematicBackground />
 
             <div className="max-w-[1400px] w-full text-center flex flex-col items-center relative z-10 pt-20">
                 <motion.div
@@ -32,7 +32,7 @@ export default function Hero() {
                     transition={{ duration: 0.8, delay: 0.2, ease: [0.23, 1, 0.32, 1] }}
                     className="font-mono text-5xl md:text-6xl lg:text-8xl font-black leading-none mb-8 tracking-tighter uppercase text-white break-words max-w-5xl mx-auto"
                 >
-                    <span className="block text-transparent [-webkit-text-stroke:1px_rgba(255,255,255,0.5)] md:[-webkit-text-stroke:2px_rgba(255,255,255,0.5)] mb-2 md:mb-4 drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]">
+                    <span className="block text-transparent [-webkit-text-stroke:1px_rgba(255,255,255,1)] md:[-webkit-text-stroke:2px_rgba(255,255,255,1)] mb-2 md:mb-4 drop-shadow-[0_0_20px_rgba(255,255,255,0.8)]">
                         <TextScramble text="INTELLIGENCE" duration={1500} />
                     </span>
                     <span className="text-white drop-shadow-[0_0_40px_rgba(255,77,0,0.8)] text-shadow-lg">

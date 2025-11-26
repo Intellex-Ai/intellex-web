@@ -54,14 +54,18 @@ export default function Footer() {
                         <div>
                             <h4 className="font-mono text-sm font-black text-primary mb-6 uppercase tracking-wider">PRODUCT</h4>
                             <ul className="space-y-4">
-                                {['Features', 'Pricing', 'Changelog', 'Docs'].map((item) => (
-                                    <li key={item}>
+                                {[
+                                    { name: 'Features', href: '/#features' },
+                                    { name: 'Pricing', href: '/#pricing' },
+                                    { name: 'Changelog', href: '/changelog' },
+                                    { name: 'Docs', href: '/docs' }
+                                ].map((item) => (
+                                    <li key={item.name}>
                                         <Link
-                                            href="#"
-                                            className="font-mono text-muted text-sm uppercase hover:text-white transition-colors duration-200 flex items-center group"
+                                            href={item.href}
+                                            className="font-mono text-muted text-sm uppercase hover:text-white transition-all duration-200 flex items-center group border-l-2 border-transparent hover:border-[#ff4d00] pl-0 hover:pl-3"
                                         >
-                                            <span className="w-0 group-hover:w-2 h-[1px] bg-primary mr-0 group-hover:mr-2 transition-all duration-300" />
-                                            {item}
+                                            {item.name}
                                         </Link>
                                     </li>
                                 ))}
@@ -72,14 +76,18 @@ export default function Footer() {
                         <div>
                             <h4 className="font-mono text-sm font-black text-white mb-6 uppercase tracking-wider">COMPANY</h4>
                             <ul className="space-y-4">
-                                {['About', 'Blog', 'Careers', 'Contact'].map((item) => (
-                                    <li key={item}>
+                                {[
+                                    { name: 'About', href: '/about' },
+                                    { name: 'Blog', href: '/blog' },
+                                    { name: 'Careers', href: '/careers' },
+                                    { name: 'Contact', href: '/contact' }
+                                ].map((item) => (
+                                    <li key={item.name}>
                                         <Link
-                                            href="#"
-                                            className="font-mono text-muted text-sm uppercase hover:text-white transition-colors duration-200 flex items-center group"
+                                            href={item.href}
+                                            className="font-mono text-muted text-sm uppercase hover:text-white transition-all duration-200 flex items-center group border-l-2 border-transparent hover:border-[#ff4d00] pl-0 hover:pl-3"
                                         >
-                                            <span className="w-0 group-hover:w-2 h-[1px] bg-primary mr-0 group-hover:mr-2 transition-all duration-300" />
-                                            {item}
+                                            {item.name}
                                         </Link>
                                     </li>
                                 ))}
@@ -112,8 +120,8 @@ export default function Footer() {
                         © {new Date().getFullYear()} INTELLEX_INC.
                     </p>
                     <div className="flex gap-6">
-                        <Link href="#" className="font-mono text-xs text-muted hover:text-white uppercase transition-colors">PRIVACY</Link>
-                        <Link href="#" className="font-mono text-xs text-muted hover:text-white uppercase transition-colors">TERMS</Link>
+                        <Link href="/privacy" className="font-mono text-xs text-muted hover:text-white uppercase transition-colors">PRIVACY</Link>
+                        <Link href="/terms" className="font-mono text-xs text-muted hover:text-white uppercase transition-colors">TERMS</Link>
                     </div>
                 </div>
             </div>

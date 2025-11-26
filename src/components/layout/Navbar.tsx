@@ -39,7 +39,7 @@ export default function Navbar() {
         <nav className="fixed top-0 left-0 right-0 z-50 h-[80px] flex items-center border-b border-white/10 bg-black/80 backdrop-blur-md supports-[backdrop-filter]:bg-black/60">
             <div className="w-full m-0 px-4 lg:px-12 flex items-center justify-between h-full max-w-[1400px] mx-auto">
                 <Link href="/" className="font-mono text-2xl font-black text-white tracking-tighter uppercase flex items-center gap-2 transition-opacity hover:opacity-80">
-                    <span className="text-primary">///</span> INTELLEX
+                    <span className="text-primary">{'///'}</span> INTELLEX
                 </Link>
 
                 {/* Desktop Links */}
@@ -47,7 +47,7 @@ export default function Navbar() {
                     {['Features', 'Pricing'].map((item) => (
                         <Link
                             key={item}
-                            href={`#${item.toLowerCase()}`}
+                            href={`/#${item.toLowerCase()}`}
                             className="relative font-mono text-sm font-bold text-muted-foreground hover:text-white transition-colors uppercase tracking-widest group"
                         >
                             {item.toUpperCase()}
@@ -94,8 +94,8 @@ export default function Navbar() {
                             className="lg:hidden fixed top-0 left-0 w-screen h-screen bg-black z-[100] flex flex-col items-center justify-center p-8 border-l border-white/10"
                         >
                             <div className="flex flex-col gap-8 items-center w-full max-w-md">
-                                <Link href="#features" className="font-mono text-3xl font-black text-white uppercase tracking-wider hover:text-primary transition-colors" onClick={toggleMenu}>FEATURES</Link>
-                                <Link href="#pricing" className="font-mono text-3xl font-black text-white uppercase tracking-wider hover:text-primary transition-colors" onClick={toggleMenu}>PRICING</Link>
+                                <Link href="/#features" className="font-mono text-3xl font-black text-white uppercase tracking-wider hover:text-primary transition-colors" onClick={toggleMenu}>FEATURES</Link>
+                                <Link href="/#pricing" className="font-mono text-3xl font-black text-white uppercase tracking-wider hover:text-primary transition-colors" onClick={toggleMenu}>PRICING</Link>
                                 {user ? (
                                     <>
                                         <Link href="/dashboard" className="font-mono text-3xl font-black text-white uppercase tracking-wider hover:text-primary transition-colors" onClick={toggleMenu}>DASHBOARD</Link>

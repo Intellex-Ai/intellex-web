@@ -75,6 +75,19 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Text Selection - Neon Orange Theme */
+::selection {
+  background-color: var(--primary) !important;
+  color: #000000 !important;
+  text-shadow: none !important;
+}
+
+::-moz-selection {
+  background-color: var(--primary) !important;
+  color: #000000 !important;
+  text-shadow: none !important;
+}
+
 @keyframes grid-move {
   0% {
     background-position: 0 0;

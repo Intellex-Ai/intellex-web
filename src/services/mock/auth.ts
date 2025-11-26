@@ -11,7 +11,7 @@ const MOCK_USER: User = {
 };
 
 export const MockAuthService = {
-    login: async (email: string): Promise<User> => {
+    login: async (_email: string): Promise<User> => { // eslint-disable-line @typescript-eslint/no-unused-vars
         await new Promise((resolve) => setTimeout(resolve, 800)); // Simulate network delay
         return MOCK_USER;
     },

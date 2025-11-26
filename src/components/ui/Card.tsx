@@ -12,7 +12,7 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
     ({ className, hoverEffect = false, spotlight = true, children, ...props }, ref) => {
         const divRef = useRef<HTMLDivElement>(null);
         const [position, setPosition] = useState({ x: 0, y: 0 });
-        const [opacity, setOpacity] = useState(0);
+
 
         const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
             if (!divRef.current || !spotlight) return;
@@ -23,20 +23,12 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
             setPosition({ x: e.clientX - rect.left, y: e.clientY - rect.top });
         };
 
-        const handleMouseEnter = () => {
-            if (spotlight) setOpacity(1);
-        };
 
-        const handleMouseLeave = () => {
-            if (spotlight) setOpacity(0);
-        };
 
         return (
             <div
                 ref={ref || divRef}
                 onMouseMove={handleMouseMove}
-                onMouseEnter={handleMouseEnter}
-                onMouseLeave={handleMouseLeave}
                 className={clsx(
                     'bg-surface border border-white/5 p-6 md:p-8 relative overflow-hidden group flex flex-col transition-all duration-300',
                     hoverEffect && 'hover:border-primary/50 hover:shadow-[0_0_30px_-10px_rgba(255,77,0,0.2)] hover:-translate-y-1',

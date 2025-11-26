@@ -1,4 +1,4 @@
-import { ChatMessage, AgentThought } from '@/types';
+import { ChatMessage } from '@/types';
 
 const MOCK_MESSAGES: Record<string, ChatMessage[]> = {
     'proj-1': [

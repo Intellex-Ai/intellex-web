@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useRef, useState } from 'react';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
@@ -55,7 +57,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
                 onMouseLeave={handleMouseLeave}
                 animate={{ x: position.x, y: position.y }}
                 transition={{ type: "spring", stiffness: 150, damping: 15, mass: 0.1 }}
-                {...props as any} // Cast to any to avoid framer-motion type conflicts with standard button props
+                {...props as any} // eslint-disable-line @typescript-eslint/no-explicit-any
             >
                 {isLoading && <Loader2 className="animate-spin mr-2" size={16} />}
                 {leftIcon && <span className="mr-2">{leftIcon}</span>}

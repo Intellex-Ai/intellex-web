@@ -22,7 +22,7 @@ export const VideoBackground: React.FC<VideoBackgroundProps> = ({
                 className="absolute top-0 left-0 w-full h-full object-cover opacity-60 mix-blend-screen"
                 poster={posterUrl}
             >
-                <source src={videoUrl} type="video/mp4" />
+                <source src="https://cdn.pixabay.com/video/2020/04/18/36465-412239404_large.mp4" type="video/mp4" />
             </video>
             <div className="absolute top-0 left-0 w-full h-full bg-black/60 z-10" />
             <div className="absolute top-0 left-0 w-full h-full bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[length:50px_50px] z-20 pointer-events-none" />

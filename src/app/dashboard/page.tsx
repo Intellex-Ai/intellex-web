@@ -3,8 +3,8 @@
 import React, { useEffect } from 'react';
 import { useStore } from '@/store';
 import { ProjectCard } from '@/components/dashboard/ProjectCard';
-import { Plus, Search, LayoutGrid } from 'lucide-react';
-import Link from 'next/link';
+import { Plus, Search } from 'lucide-react';
+
 
 export default function DashboardPage() {
     const { projects, loadProjects, isLoading, user } = useStore();

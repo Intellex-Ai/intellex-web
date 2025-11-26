@@ -26,7 +26,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
                         ref={ref}
                         id={inputId}
                         className={clsx(
-                            'w-full h-12 bg-black/60 border-2 border-border rounded-none px-4 text-foreground font-mono text-sm transition-all duration-100 outline-none uppercase hover:border-primary hover:bg-[rgba(255,51,0,0.05)] focus:border-primary focus:bg-black/90 focus:shadow-[4px_4px_0_var(--primary)] disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-muted',
+                            'w-full h-12 bg-black/60 border-2 border-border rounded-none px-4 text-foreground font-mono text-sm transition-all duration-100 outline-none hover:border-primary hover:bg-[rgba(255,51,0,0.05)] focus:border-primary focus:bg-black/90 focus:shadow-[4px_4px_0_var(--primary)] disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-muted',
                             leftIcon && 'pl-10',
                             error && 'border-error focus:shadow-[0_0_0_1px_var(--error)]'
                         )}
