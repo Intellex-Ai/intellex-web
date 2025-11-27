@@ -41,34 +41,54 @@ export default function AppLayout({ children }: AppLayoutProps) {
     };
 
     return (
-        <div className="flex min-h-screen bg-background">
+        <div className="flex min-h-screen bg-black text-foreground font-sans selection:bg-primary selection:text-black">
             {/* Mobile Header */}
-            <header className="hidden md:flex h-[64px] px-6 items-center justify-between bg-background border-b border-border fixed top-0 left-0 right-0 z-50">
-                <Link href="/dashboard" className="font-mono text-2xl font-black text-primary uppercase tracking-tighter whitespace-nowrap overflow-hidden transition-opacity duration-100">Intellex</Link>
-                <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+            <header className="md:hidden h-[64px] px-6 flex items-center justify-between bg-black/80 backdrop-blur-md border-b border-white/10 fixed top-0 left-0 right-0 z-50">
+                <Link href="/dashboard" className="font-mono text-xl font-bold text-white tracking-tight uppercase">
+                    Intellex
+                </Link>
+                <button
+                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                    className="text-muted-foreground hover:text-primary transition-colors"
+                >
                     {isMobileMenuOpen ? <X /> : <Menu />}
                 </button>
             </header>
 
             {/* Sidebar */}
             <aside className={clsx(
-                "w-[280px] bg-black/95 backdrop-blur-[10px] border-r-2 border-primary flex flex-col sticky top-0 h-screen transition-[width] duration-100 z-40 md:fixed md:-translate-x-full md:w-[260px]",
-                !isSidebarOpen && "w-[80px]",
-                isMobileMenuOpen && "md:translate-x-0"
+                "fixed inset-y-0 left-0 z-40 flex flex-col bg-black/90 backdrop-blur-xl border-r border-white/10 transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]",
+                // Base (Mobile)
+                "w-[280px] -translate-x-full",
+                isMobileMenuOpen && "translate-x-0",
+
+                // Desktop
+                "md:translate-x-0",
+                isSidebarOpen ? "md:w-[280px]" : "md:w-[80px]"
             )}>
-                <div className="h-[80px] flex items-center justify-between px-6 border-b-2 border-border">
-                    <Link href="/dashboard" className={clsx("font-mono text-2xl font-black text-primary uppercase tracking-tighter whitespace-nowrap overflow-hidden transition-opacity duration-100", !isSidebarOpen && "opacity-0 w-0 pointer-events-none")}>
+                {/* Sidebar Header */}
+                <div className="h-[80px] flex items-center justify-between px-6 border-b border-white/10 overflow-hidden">
+                    <Link href="/dashboard" className={clsx(
+                        "font-mono text-2xl font-bold text-white tracking-tighter uppercase whitespace-nowrap transition-all duration-300",
+                        !isSidebarOpen && "md:opacity-0 md:w-0 md:hidden"
+                    )}>
                         Intellex
                     </Link>
+
+                    {/* Desktop Collapse Toggle */}
                     <button
-                        className="bg-transparent border border-border text-muted cursor-pointer p-2 rounded-none transition-all duration-100 flex items-center justify-center hover:bg-primary hover:text-black hover:border-primary md:hidden"
+                        className={clsx(
+                            "hidden md:flex items-center justify-center w-8 h-8 text-muted-foreground hover:text-primary transition-colors",
+                            !isSidebarOpen && "mx-auto"
+                        )}
                         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
                     >
-                        {isSidebarOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+                        {isSidebarOpen ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
                     </button>
                 </div>
 
-                <nav className="flex-1 py-8 flex flex-col gap-0">
+                {/* Navigation */}
+                <nav className="flex-1 py-8 flex flex-col gap-2 px-3">
                     {navItems.map((item) => {
                         const isActive = pathname.startsWith(item.href);
                         return (
@@ -76,12 +96,33 @@ export default function AppLayout({ children }: AppLayoutProps) {
                                 key={item.href}
                                 href={item.href}
                                 className={clsx(
-                                    "flex items-center gap-4 px-8 py-4 text-muted rounded-none transition-all duration-100 whitespace-nowrap overflow-hidden border-l-2 border-transparent font-mono uppercase text-sm tracking-wider hover:bg-[rgba(255,51,0,0.1)] hover:text-foreground hover:border-border",
-                                    isActive && "bg-primary text-black border-l-black font-bold"
+                                    "group flex items-center gap-4 px-4 py-3 rounded-none transition-all duration-200 relative overflow-hidden",
+                                    // Active State
+                                    isActive
+                                        ? "text-primary bg-primary/5"
+                                        : "text-muted-foreground hover:text-white hover:bg-white/5",
+                                    // Collapsed state adjustment
+                                    !isSidebarOpen && "md:justify-center md:px-2"
                                 )}
+                                title={!isSidebarOpen ? item.label : undefined}
                             >
-                                <item.icon size={20} />
-                                <span className={clsx("font-normal transition-opacity duration-100", !isSidebarOpen && "opacity-0 w-0 pointer-events-none")}>
+                                {/* Active Indicator Line */}
+                                {isActive && (
+                                    <div className={clsx(
+                                        "absolute left-0 top-0 bottom-0 w-[2px] bg-primary shadow-[0_0_8px_rgba(255,77,0,0.5)]",
+                                        !isSidebarOpen && "md:left-0"
+                                    )} />
+                                )}
+
+                                <item.icon size={20} className={clsx(
+                                    "shrink-0 transition-colors duration-200",
+                                    isActive ? "text-primary drop-shadow-[0_0_5px_rgba(255,77,0,0.5)]" : "group-hover:text-white"
+                                )} />
+
+                                <span className={clsx(
+                                    "font-mono text-sm uppercase tracking-wider whitespace-nowrap transition-all duration-300",
+                                    !isSidebarOpen && "md:opacity-0 md:w-0 md:hidden"
+                                )}>
                                     {item.label}
                                 </span>
                             </Link>
@@ -89,28 +130,57 @@ export default function AppLayout({ children }: AppLayoutProps) {
                     })}
                 </nav>
 
-                <div className="p-6 border-t-2 border-border flex flex-col gap-4 bg-black">
-                    <div className="flex items-center gap-4 overflow-hidden">
-                        <div className="w-10 h-10 rounded-none bg-surface-200 border border-border flex items-center justify-center text-primary shrink-0 font-mono font-bold">
-                            <User size={16} />
+                {/* User Profile */}
+                <div className="p-4 border-t border-white/10 bg-black/40">
+                    <div className={clsx(
+                        "flex items-center gap-3 mb-4 transition-all duration-300",
+                        !isSidebarOpen ? "md:justify-center" : "px-2"
+                    )}>
+                        <div className="w-10 h-10 rounded-full bg-surface-200 border border-white/10 flex items-center justify-center text-primary shrink-0 relative group cursor-pointer overflow-hidden">
+                            <div className="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                            <User size={18} />
                         </div>
-                        <div className={clsx("flex flex-col whitespace-nowrap overflow-hidden", !isSidebarOpen && "opacity-0 w-0 pointer-events-none")}>
-                            <span className="font-mono text-sm font-bold text-foreground uppercase">User</span>
-                            <span className="font-mono text-xs text-muted">user@example.com</span>
+
+                        <div className={clsx(
+                            "flex flex-col overflow-hidden transition-all duration-300",
+                            !isSidebarOpen && "md:hidden"
+                        )}>
+                            <span className="font-bold text-sm text-white truncate">Researcher</span>
+                            <span className="text-xs text-muted-foreground truncate">user@intellex.ai</span>
                         </div>
                     </div>
-                    <button onClick={handleSignOut} className="flex items-center gap-4 p-3 bg-transparent border border-border text-muted cursor-pointer transition-all duration-100 rounded-none font-mono uppercase text-xs justify-center hover:text-white hover:bg-error hover:border-error" title="Sign Out">
-                        <LogOut size={20} />
-                        <span className={clsx("font-normal transition-opacity duration-100", !isSidebarOpen && "opacity-0 w-0 pointer-events-none")}>
+
+                    <button
+                        onClick={handleSignOut}
+                        className={clsx(
+                            "flex items-center gap-3 w-full px-4 py-2 text-xs font-mono uppercase tracking-wider text-muted-foreground hover:text-error hover:bg-error/10 transition-all duration-200 rounded-sm group",
+                            !isSidebarOpen && "md:justify-center md:px-0"
+                        )}
+                        title="Sign Out"
+                    >
+                        <LogOut size={18} className="shrink-0 group-hover:text-error transition-colors" />
+                        <span className={clsx(
+                            "whitespace-nowrap transition-all duration-300",
+                            !isSidebarOpen && "md:hidden"
+                        )}>
                             Sign Out
                         </span>
                     </button>
                 </div>
             </aside>
 
-            {/* Main Content */}
-            <main className="flex-1 flex flex-col min-w-0 md:pt-[64px]">
-                <div className="flex-1 p-8 overflow-y-auto">
+            {/* Main Content Area */}
+            <main className={clsx(
+                "flex-1 flex flex-col min-h-screen transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]",
+                // Adjust margin based on sidebar state
+                isSidebarOpen ? "md:ml-[280px]" : "md:ml-[80px]"
+            )}>
+                {/* Desktop Top Bar (Optional - can be removed if not needed, or used for breadcrumbs/actions) */}
+                <div className="hidden md:flex h-[80px] items-center justify-end px-8 sticky top-0 z-30 pointer-events-none">
+                    {/* Add global actions here if needed */}
+                </div>
+
+                <div className="flex-1 p-6 md:p-10 pt-[80px] md:pt-6 overflow-y-auto">
                     {children}
                 </div>
             </main>
@@ -118,7 +188,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             {/* Mobile Overlay */}
             {isMobileMenuOpen && (
                 <div
-                    className="hidden md:block fixed inset-0 bg-black/50 backdrop-blur-[4px] z-30"
+                    className="md:hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-30 animate-in fade-in duration-200"
                     onClick={() => setIsMobileMenuOpen(false)}
                 />
             )}
