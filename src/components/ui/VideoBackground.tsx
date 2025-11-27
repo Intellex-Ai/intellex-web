@@ -9,24 +9,30 @@ interface VideoBackgroundProps {
 }
 
 export const VideoBackground: React.FC<VideoBackgroundProps> = ({
-    videoUrl = "https://assets.mixkit.co/videos/preview/mixkit-abstract-technology-network-background-3166-large.mp4", // Placeholder tech video
+    videoUrl = "https://videos.pexels.com/video-files/3129671/3129671-uhd_2560_1440_30fps.mp4", // Pexels: Abstract Black and White Lines
     posterUrl
 }) => {
     return (
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 bg-black">
             <video
                 autoPlay
                 loop
                 muted
                 playsInline
-                className="absolute top-0 left-0 w-full h-full object-cover opacity-60 mix-blend-screen"
+                className="absolute top-0 left-0 w-full h-full object-cover opacity-50 grayscale"
                 poster={posterUrl}
             >
-                <source src="https://cdn.pixabay.com/video/2020/04/18/36465-412239404_large.mp4" type="video/mp4" />
+                <source src={videoUrl} type="video/mp4" />
             </video>
-            <div className="absolute top-0 left-0 w-full h-full bg-black/60 z-10" />
-            <div className="absolute top-0 left-0 w-full h-full bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[length:50px_50px] z-20 pointer-events-none" />
-            <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_center,transparent_0%,#000000_100%)] z-20 pointer-events-none" />
+
+            {/* Minimal Overlay for text readability */}
+            <div className="absolute inset-0 bg-black/30 z-10" />
+
+            {/* Subtle Dot Grid */}
+            <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.1)_1px,transparent_1px)] bg-[length:30px_30px] opacity-20 z-20 pointer-events-none" />
+
+            {/* Vignette */}
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,#000000_100%)] z-20 pointer-events-none" />
         </div>
     );
 };
