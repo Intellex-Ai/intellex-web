@@ -7,15 +7,26 @@ interface ProjectCardProps {
     project: ResearchProject;
 }
 
+import { Card } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
+
 export const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
     const getStatusIcon = (status: string) => {
         switch (status) {
             case 'active':
-                return <Activity className="w-4 h-4 text-primary" />;
+                return <Activity className="w-3 h-3" />;
             case 'completed':
-                return <CheckCircle2 className="w-4 h-4 text-success" />;
+                return <CheckCircle2 className="w-3 h-3" />;
             default:
-                return <Clock className="w-4 h-4 text-muted" />;
+                return <Clock className="w-3 h-3" />;
+        }
+    };
+
+    const getStatusVariant = (status: string) => {
+        switch (status) {
+            case 'active': return 'neutral';
+            case 'completed': return 'success';
+            default: return 'neutral';
         }
     };
 
@@ -28,33 +39,30 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
     };
 
     return (
-        <Link href={`/research/${project.id}`} className="block group">
-            <div className="bg-black/90 backdrop-blur-[10px] border-2 border-border p-6 h-full transition-all duration-300 hover:border-primary hover:-translate-y-[2px] relative overflow-hidden">
-                {/* Hover Glow Effect */}
-                <div className="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-10 transition-opacity duration-500 pointer-events-none" />
-
-                <div className="flex justify-between items-start mb-4">
-                    <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
+        <Link href={`/research/${project.id}`} className="block h-full">
+            <Card hoverEffect spotlight className="h-full flex flex-col bg-black/50 backdrop-blur-sm p-6 md:p-8">
+                <div className="flex justify-between items-start mb-6">
+                    <Badge variant={getStatusVariant(project.status)} className="flex items-center gap-2">
                         {getStatusIcon(project.status)}
                         <span>{project.status}</span>
-                    </div>
-                    <span className="text-xs text-muted font-mono">
-                        {formatDate(project.updatedAt)}
+                    </Badge>
+                    <span className="text-[10px] text-muted font-mono tracking-wider uppercase">
+                        // {formatDate(project.updatedAt)}
                     </span>
                 </div>
 
-                <h3 className="text-xl font-bold mb-2 text-foreground group-hover:text-primary transition-colors">
+                <h3 className="text-xl font-mono font-bold mb-3 text-white tracking-tight uppercase">
                     {project.title}
                 </h3>
 
-                <p className="text-muted-foreground text-sm line-clamp-2 mb-6">
+                <p className="text-muted text-sm line-clamp-3 mb-8 leading-relaxed font-mono flex-grow">
                     {project.goal}
                 </p>
 
-                <div className="flex items-center text-sm font-medium text-primary opacity-0 transform -translate-x-[10px] group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
-                    Open Project <ArrowRight className="w-4 h-4 ml-2" />
+                <div className="flex items-center text-xs font-bold font-mono uppercase tracking-widest text-primary mt-auto group">
+                    Open_Project <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform duration-300" />
                 </div>
-            </div>
+            </Card>
         </Link>
     );
 };
