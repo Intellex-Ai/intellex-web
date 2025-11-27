@@ -4,14 +4,14 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { VideoBackground } from '@/components/ui/VideoBackground';
+import { CinematicBackground } from '@/components/ui/CinematicBackground';
 import { TextScramble } from '@/components/ui/TextScramble';
 import { motion } from 'framer-motion';
 
 export default function Hero() {
     return (
         <section className="relative min-h-screen flex items-center justify-center px-8 overflow-hidden md:px-4">
-            <VideoBackground />
+            <CinematicBackground />
 
             <div className="max-w-[1400px] w-full text-center flex flex-col items-center relative z-10 pt-20">
                 <motion.div

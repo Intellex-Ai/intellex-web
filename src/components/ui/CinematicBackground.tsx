@@ -1,5 +1,4 @@
 'use client';
-
 import React, { useEffect, useRef } from 'react';
 
 export const CinematicBackground = () => {
@@ -12,157 +11,204 @@ export const CinematicBackground = () => {
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        let animationFrameId: number;
-        let points: Point[] = [];
-        let rotation = 0;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2); // Cap DPI at 2 for performance
+
+        // Handle resizing with DPI support
+        const handleResize = () => {
+            if (!canvas || !ctx) return;
+            canvas.width = window.innerWidth * dpr;
+            canvas.height = window.innerHeight * dpr;
+            ctx.scale(dpr, dpr);
+        };
+
+        handleResize();
 
         // Configuration
-        const sphereRadius = 400;
-        const pointCount = 500;
-        const connectionDistance = 90;
-        const primaryColor = '255, 77, 0'; // Neon Orange
+        const gridSize = 60; // Restored high density
+        const spacing = 60; // Restored spacing
+        const fov = 600;
+        const waveSpeed = 0.04; // Slightly slower for elegance
+        const waveHeight = 50;
+        const waveFrequency = 0.015;
 
-        class Point {
+        let time = 0;
+        let animationFrameId: number;
+
+        // Generate Grid Points
+        interface Point3D {
             x: number;
             y: number;
             z: number;
-            baseX: number;
-            baseY: number;
-            baseZ: number;
+            ox: number; // Original X
+            oz: number; // Original Z
+        }
 
-            constructor() {
-                // Distribute points on a sphere using Fibonacci sphere algorithm for even distribution
-                // But let's use random for a more "organic/glitchy" data look
-                const theta = Math.random() * 2 * Math.PI;
-                const phi = Math.acos((Math.random() * 2) - 1);
+        const points: Point3D[] = [];
+        const rows = gridSize;
+        const cols = gridSize;
 
-                this.baseX = sphereRadius * Math.sin(phi) * Math.cos(theta);
-                this.baseY = sphereRadius * Math.sin(phi) * Math.sin(theta);
-                this.baseZ = sphereRadius * Math.cos(phi);
+        // Center the grid
+        const xOffset = (cols * spacing) / 2;
+        const zOffset = (rows * spacing) / 2;
 
-                this.x = this.baseX;
-                this.y = this.baseY;
-                this.z = this.baseZ;
-            }
-
-            rotate(angle: number) {
-                // Rotate around Y axis
-                const cos = Math.cos(angle);
-                const sin = Math.sin(angle);
-
-                const x = this.baseX * cos - this.baseZ * sin;
-                const z = this.baseX * sin + this.baseZ * cos;
-
-                this.x = x;
-                this.z = z;
-
-                // Optional: slight X axis rotation for tilt
-                const tilt = 0.2;
-                const y = this.baseY * Math.cos(tilt) - this.z * Math.sin(tilt);
-                const z2 = this.baseY * Math.sin(tilt) + this.z * Math.cos(tilt);
-                this.y = y;
-                this.z = z2;
-            }
-
-            project(width: number, height: number, fov: number) {
-                const scale = fov / (fov + this.z);
-                const x2d = (this.x * scale) + width / 2;
-                const y2d = (this.y * scale) + height / 2;
-                return { x: x2d, y: y2d, scale: scale };
+        for (let z = 0; z < rows; z++) {
+            for (let x = 0; x < cols; x++) {
+                points.push({
+                    x: x * spacing - xOffset,
+                    y: 0,
+                    z: z * spacing - zOffset,
+                    ox: x * spacing - xOffset,
+                    oz: z * spacing - zOffset
+                });
             }
         }
 
-        const init = () => {
-            resize();
-            points = [];
-            for (let i = 0; i < pointCount; i++) {
-                points.push(new Point());
-            }
-        };
-
-        const resize = () => {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        };
-
         const animate = () => {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (!canvas || !ctx) return;
 
-            // Center of screen
-            const cx = canvas.width / 2;
-            const cy = canvas.height / 2;
+            // Clear with correct dimensions
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, window.innerWidth, window.innerHeight); // Use window dims, not canvas dims (which are scaled)
 
-            rotation += 0.0015; // Slow rotation
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            const cx = width / 2;
+            const cy = height / 2;
 
-            // Update and project points
-            const projectedPoints = points.map(p => {
-                p.rotate(rotation);
-                return p.project(canvas.width, canvas.height, 500); // 400 is FOV/Distance
-            });
+            time += waveSpeed;
 
-            // Draw connections
-            ctx.lineWidth = 1;
+            // Pre-calculate rotation constants
+            const tiltAngle = 0.5; // Lower tilt for more "landscape" view
+            const cosT = Math.cos(tiltAngle);
+            const sinT = Math.sin(tiltAngle);
+
+            // Batching Arrays (Quantized Opacity)
+            // 0: 0.1-0.3, 1: 0.3-0.5, 2: 0.5-0.7, 3: 0.7-0.9, 4: 0.9-1.0
+            const lineBatches: number[][] = [[], [], [], [], []];
+            const dotBatches: { x: number, y: number, s: number }[][] = [[], [], [], [], []];
+
+            // Update Points & Project
             for (let i = 0; i < points.length; i++) {
-                const p1 = projectedPoints[i];
-                // Only draw if point is in front (z > -radius roughly, but scale handles size)
-                // Actually, let's draw everything but fade back points
+                const p = points[i];
+                const dist = Math.sqrt(p.ox * p.ox + p.oz * p.oz);
+                p.y = Math.sin(dist * waveFrequency - time) * waveHeight;
 
-                // Find nearby points to connect
-                // Optimization: Only check a subset or use spatial hashing? 
-                // For 400 points, N^2 is 160,000 checks. A bit heavy for JS.
-                // Let's just connect to the next few in the array (random connections)
-                // Or better: connect to points that are physically close in 3D space? No, 2D space is cooler for "constellation" look.
+                // Projection
+                const ry = p.y * cosT - p.z * sinT;
+                const rz = p.y * sinT + p.z * cosT + 900;
+                const scale = fov / (fov + rz);
 
-                // Let's try connecting to random neighbors for performance, or just N closest.
-                // Simple distance check in 2D:
+                if (scale > 0) {
+                    const px = cx + p.x * scale;
+                    const py = cy + ry * scale;
 
-                let connections = 0;
-                for (let j = i + 1; j < points.length; j++) {
-                    const p2 = projectedPoints[j];
-                    const dx = p1.x - p2.x;
-                    const dy = p1.y - p2.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    // Culling: Skip if way off screen
+                    if (px < -100 || px > width + 100 || py < -100 || py > height + 100) continue;
 
-                    if (dist < connectionDistance) {
-                        // Alpha based on distance and Z-depth (scale)
-                        // Higher scale = closer = brighter
-                        const alpha = (1 - dist / connectionDistance);
+                    // Calculate Alpha
+                    const alphaDepth = Math.max(0, 1 - (rz / 3000));
+                    const maxDist = (gridSize * spacing) / 2;
+                    const radialAlpha = Math.max(0, 1 - (dist / maxDist) * 0.6);
+                    const finalAlpha = alphaDepth * radialAlpha;
 
-                        if (alpha > 0) {
-                            ctx.beginPath();
-                            ctx.moveTo(p1.x, p1.y);
-                            ctx.lineTo(p2.x, p2.y);
-
-                            // Color: Mostly grey, occasional orange
-                            if (i % 25 === 0) {
-                                ctx.strokeStyle = `rgba(${primaryColor}, ${alpha * 0.8})`;
-                            } else {
-                                ctx.strokeStyle = `rgba(40, 40, 40, ${alpha * 0.3})`; // Much darker grey
-                            }
-                            ctx.stroke();
-                            connections++;
+                    if (finalAlpha > 0.1) {
+                        // Quantize Alpha for Batching
+                        const batchIdx = Math.min(4, Math.floor((finalAlpha - 0.1) / 0.18));
+                        if (batchIdx >= 0) {
+                            dotBatches[batchIdx].push({ x: px, y: py, s: 1.5 * scale });
                         }
                     }
-                    if (connections > 4) break; // Limit connections per point
-                }
 
-                // Draw Point
-                const alpha = 0.8; // Fade distant points
+                    // Store projected coords for lines
+                    // We can't easily store them back on 'p' without dirtying the type or using a parallel array
+                    // But we need them for the next point. 
+                    // Let's just re-project for lines? It's cheap math.
+                    // Or better: Horizontal Line
+                    const x = i % cols;
+                    const z = Math.floor(i / cols);
+
+                    if (x < cols - 1) {
+                        const nextP = points[i + 1];
+                        const nry = nextP.y * cosT - nextP.z * sinT;
+                        const nrz = nextP.y * sinT + nextP.z * cosT + 900;
+                        const nScale = fov / (fov + nrz);
+
+                        if (nScale > 0) {
+                            const npx = cx + nextP.x * nScale;
+                            const npy = cy + nry * nScale;
+
+                            // Average alpha for line
+                            const lineAlpha = finalAlpha; // Simplified
+                            if (lineAlpha > 0.05) {
+                                const batchIdx = Math.min(4, Math.floor((lineAlpha - 0.05) / 0.19));
+                                if (batchIdx >= 0) {
+                                    lineBatches[batchIdx].push(px, py, npx, npy);
+                                }
+                            }
+                        }
+                    }
+
+                    // Vertical Line
+                    if (z < rows - 1) {
+                        const nextP = points[i + cols];
+                        const nry = nextP.y * cosT - nextP.z * sinT;
+                        const nrz = nextP.y * sinT + nextP.z * cosT + 900;
+                        const nScale = fov / (fov + nrz);
+
+                        if (nScale > 0) {
+                            const npx = cx + nextP.x * nScale;
+                            const npy = cy + nry * nScale;
+
+                            const lineAlpha = finalAlpha;
+                            if (lineAlpha > 0.05) {
+                                const batchIdx = Math.min(4, Math.floor((lineAlpha - 0.05) / 0.19));
+                                if (batchIdx >= 0) {
+                                    lineBatches[batchIdx].push(px, py, npx, npy);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Render Batches
+            // Lines
+            ctx.lineWidth = 1;
+            const opacities = [0.2, 0.4, 0.6, 0.8, 1.0];
+
+            for (let i = 0; i < 5; i++) {
+                const batch = lineBatches[i];
+                if (batch.length === 0) continue;
+
                 ctx.beginPath();
-                ctx.arc(p1.x, p1.y, 1.2 * p1.scale, 0, Math.PI * 2);
-                ctx.fillStyle = i % 25 === 0 ? `rgba(${primaryColor}, ${alpha})` : `rgba(60, 60, 60, ${alpha})`; // Darker points
+                ctx.strokeStyle = `rgba(255, 77, 0, ${opacities[i] * 0.4})`; // 0.4 multiplier for subtlety
+
+                for (let j = 0; j < batch.length; j += 4) {
+                    ctx.moveTo(batch[j], batch[j + 1]);
+                    ctx.lineTo(batch[j + 2], batch[j + 3]);
+                }
+                ctx.stroke();
+            }
+
+            // Dots
+            for (let i = 0; i < 5; i++) {
+                const batch = dotBatches[i];
+                if (batch.length === 0) continue;
+
+                ctx.fillStyle = `rgba(255, 77, 0, ${opacities[i]})`;
+                ctx.beginPath();
+                for (let j = 0; j < batch.length; j++) {
+                    const dot = batch[j];
+                    ctx.moveTo(dot.x + dot.s, dot.y);
+                    ctx.arc(dot.x, dot.y, dot.s, 0, Math.PI * 2);
+                }
                 ctx.fill();
             }
 
             animationFrameId = requestAnimationFrame(animate);
         };
 
-        const handleResize = () => {
-            resize();
-        };
-
         window.addEventListener('resize', handleResize);
-        init();
         animate();
 
         return () => {
@@ -182,10 +228,8 @@ export const CinematicBackground = () => {
                 className="absolute inset-0 w-full h-full"
             />
 
-
-
-            {/* Very Subtle Vignette */}
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.3)_100%)] z-20" />
+            {/* Vignette for depth */}
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.8)_100%)] z-20" />
         </div>
     );
 };
