@@ -11,8 +11,8 @@ export class ApiError extends Error {
     }
 }
 
-type ApiRequestOptions = RequestInit & {
-    body?: Record<string, unknown> | string | FormData;
+type ApiRequestOptions = Omit<RequestInit, 'body'> & {
+    body?: Record<string, unknown> | string | FormData | null;
 };
 
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
