@@ -9,6 +9,8 @@ import { Plus, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { TextScramble } from '@/components/ui/TextScramble';
 import { Button } from '@/components/ui/Button';
+import { CreateProjectModal } from '@/components/dashboard/CreateProjectModal';
+import { useState } from 'react';
 
 // Mock Data (Replace with API calls later)
 const MOCK_STATS = [
@@ -25,6 +27,7 @@ const MOCK_ACTIVITY = [
 
 export default function DashboardPage() {
     const { user, projects, loadProjects } = useStore();
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
     useEffect(() => {
         loadProjects();
@@ -45,7 +48,7 @@ export default function DashboardPage() {
                             <TextScramble text="MISSION_CONTROL" />
                         </h1>
                         <p className="text-muted font-mono text-xs md:text-sm tracking-wide">
-                            // WELCOME_BACK, {user?.name?.split(' ')[0].toUpperCase() || 'OPERATIVE'}
+                            {`// WELCOME_BACK, ${user?.name?.split(' ')[0].toUpperCase() || 'OPERATIVE'}`}
                         </p>
                     </div>
 
@@ -55,7 +58,11 @@ export default function DashboardPage() {
                                 VIEW_ALL
                             </Button>
                         </Link>
-                        <Button leftIcon={<Plus size={16} />} className="text-xs md:text-sm">
+                        <Button
+                            leftIcon={<Plus size={16} />}
+                            className="text-xs md:text-sm"
+                            onClick={() => setIsCreateModalOpen(true)}
+                        >
                             NEW_RESEARCH
                         </Button>
                     </div>
@@ -103,6 +110,12 @@ export default function DashboardPage() {
                     </div>
                 </div>
             </div>
-        </div>
+
+
+            <CreateProjectModal
+                isOpen={isCreateModalOpen}
+                onClose={() => setIsCreateModalOpen(false)}
+            />
+        </div >
     );
 }

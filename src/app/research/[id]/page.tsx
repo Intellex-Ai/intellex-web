@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useStore } from '@/store';
 import { ChatInterface } from '@/components/research/ChatInterface';
 import { PlanViewer } from '@/components/research/PlanViewer';
 import { Button } from '@/components/ui/Button';
-import { ArrowLeft, Share2, Settings } from 'lucide-react';
+import { ArrowLeft, Share2, Settings, MessageSquare, FileText } from 'lucide-react';
 import Link from 'next/link';
 import clsx from 'clsx';
 
@@ -20,6 +20,8 @@ export default function ResearchPage() {
         sendMessage,
         isLoading
     } = useStore();
+
+    const [mobileTab, setMobileTab] = useState<'chat' | 'plan'>('chat');
 
     useEffect(() => {
         if (params.id) {
@@ -66,7 +68,7 @@ export default function ResearchPage() {
                     </Link>
                     <div className="h-6 w-px bg-white/10" />
                     <div>
-                        <h1 className="font-bold text-sm tracking-tight text-white font-mono uppercase">{activeProject.title}</h1>
+                        <h1 className="font-bold text-sm tracking-tight text-white font-mono uppercase truncate max-w-[150px] md:max-w-md">{activeProject.title}</h1>
                         <div className="flex items-center gap-2 text-[10px] text-muted font-mono uppercase tracking-wider">
                             <span className={clsx("w-2 h-2 rounded-none", activeProject.status === 'completed' ? 'bg-success' : 'bg-primary')} />
                             {activeProject.status}
@@ -75,7 +77,29 @@ export default function ResearchPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm" className="p-2 h-auto">
+                    {/* Mobile Tab Switcher */}
+                    <div className="flex lg:hidden bg-white/5 rounded-sm p-0.5 mr-2 border border-white/10">
+                        <button
+                            onClick={() => setMobileTab('chat')}
+                            className={clsx(
+                                "p-1.5 rounded-sm transition-all",
+                                mobileTab === 'chat' ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-white"
+                            )}
+                        >
+                            <MessageSquare size={16} />
+                        </button>
+                        <button
+                            onClick={() => setMobileTab('plan')}
+                            className={clsx(
+                                "p-1.5 rounded-sm transition-all",
+                                mobileTab === 'plan' ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-white"
+                            )}
+                        >
+                            <FileText size={16} />
+                        </button>
+                    </div>
+
+                    <Button variant="ghost" size="sm" className="p-2 h-auto hidden sm:flex">
                         <Share2 size={18} />
                     </Button>
                     <Button variant="ghost" size="sm" className="p-2 h-auto">
@@ -86,8 +110,11 @@ export default function ResearchPage() {
 
             {/* Main Workspace */}
             <div className="flex-1 flex overflow-hidden relative z-10">
-                {/* Left: Chat (60%) */}
-                <div className="flex-1 min-w-0">
+                {/* Left: Chat (Visible on mobile if tab is chat, always visible on desktop) */}
+                <div className={clsx(
+                    "flex-1 min-w-0 transition-all duration-300",
+                    mobileTab === 'chat' ? "block" : "hidden lg:block"
+                )}>
                     <ChatInterface
                         messages={messages}
                         onSendMessage={sendMessage}
@@ -95,8 +122,11 @@ export default function ResearchPage() {
                     />
                 </div>
 
-                {/* Right: Plan (40%) */}
-                <div className="w-[400px] flex-shrink-0 border-l border-white/10 bg-black/50 backdrop-blur-sm hidden lg:block">
+                {/* Right: Plan (Visible on mobile if tab is plan, always visible on desktop) */}
+                <div className={clsx(
+                    "w-full lg:w-[400px] flex-shrink-0 border-l border-white/10 bg-black/50 backdrop-blur-sm transition-all duration-300",
+                    mobileTab === 'plan' ? "block" : "hidden lg:block"
+                )}>
                     <PlanViewer plan={activePlan} isLoading={isLoading} />
                 </div>
             </div>

@@ -27,8 +27,9 @@ export default function AuthForm({ type }: AuthFormProps) {
         setError(null);
 
         try {
-            // Mock authentication for now
-            await login();
+            const userEmail = email.trim() || 'demo@intellex.ai';
+            const displayName = userEmail.includes('@') ? userEmail.split('@')[0] : 'Intellex User';
+            await login(userEmail, displayName || 'Intellex User');
             router.push('/dashboard');
         } catch (err: unknown) {
             if (err instanceof Error) {

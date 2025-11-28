@@ -1,5 +1,7 @@
 'use client';
 
+import { useStore } from '@/store';
+
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -15,7 +17,6 @@ import {
     ChevronRight,
     User
 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import clsx from 'clsx';
 
@@ -34,10 +35,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const pathname = usePathname();
     const router = useRouter();
+    const { logout } = useStore();
 
     const handleSignOut = async () => {
-        await supabase.auth.signOut();
-        router.push('/login');
+        await logout();
+        router.push('/');
     };
 
     return (
@@ -132,8 +134,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
                 {/* User Profile */}
                 <div className="p-4 border-t border-white/10 bg-black/40">
-                    <div className={clsx(
-                        "flex items-center gap-3 mb-4 transition-all duration-300",
+                    <Link href="/profile" className={clsx(
+                        "flex items-center gap-3 mb-4 transition-all duration-300 hover:bg-white/5 p-2 rounded-sm -mx-2",
                         !isSidebarOpen ? "md:justify-center" : "px-2"
                     )}>
                         <div className="w-10 h-10 rounded-full bg-surface-200 border border-white/10 flex items-center justify-center text-primary shrink-0 relative group cursor-pointer overflow-hidden">
@@ -148,7 +150,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                             <span className="font-bold text-sm text-white truncate">Researcher</span>
                             <span className="text-xs text-muted-foreground truncate">user@intellex.ai</span>
                         </div>
-                    </div>
+                    </Link>
 
                     <button
                         onClick={handleSignOut}

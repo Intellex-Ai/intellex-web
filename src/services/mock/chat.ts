@@ -1,5 +1,14 @@
 import { ChatMessage } from '@/types';
 
+const createId = (prefix: string) => {
+    // randomUUID keeps ids unique across rapid mock messages; fallback keeps legacy Date behavior
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+        return `${prefix}-${crypto.randomUUID()}`;
+    }
+
+    return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+};
+
 const MOCK_MESSAGES: Record<string, ChatMessage[]> = {
     'proj-1': [
         {
@@ -33,14 +42,14 @@ const MOCK_MESSAGES: Record<string, ChatMessage[]> = {
 export const MockChatService = {
     getMessages: async (projectId: string): Promise<ChatMessage[]> => {
         await new Promise((resolve) => setTimeout(resolve, 500));
-        return MOCK_MESSAGES[projectId] || [];
+        return [...(MOCK_MESSAGES[projectId] || [])];
     },
 
     sendMessage: async (projectId: string, content: string): Promise<ChatMessage> => {
         await new Promise((resolve) => setTimeout(resolve, 300));
 
         const userMsg: ChatMessage = {
-            id: `msg-${Date.now()}`,
+            id: createId('msg'),
             projectId,
             senderId: 'user-1',
             senderType: 'user',
@@ -61,7 +70,7 @@ export const MockChatService = {
         await new Promise((resolve) => setTimeout(resolve, 2000)); // Thinking time
 
         const agentMsg: ChatMessage = {
-            id: `msg-${Date.now()}`,
+            id: createId('msg'),
             projectId,
             senderId: 'agent-researcher',
             senderType: 'agent',
@@ -69,7 +78,7 @@ export const MockChatService = {
             timestamp: Date.now(),
             thoughts: [
                 {
-                    id: `th-${Date.now()}`,
+                    id: createId('th'),
                     title: 'Searching Knowledge Base',
                     content: 'Querying for "Quantum Computing State 2025"... Found 15 relevant articles.',
                     status: 'completed',

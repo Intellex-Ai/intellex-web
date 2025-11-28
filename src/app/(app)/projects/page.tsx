@@ -7,11 +7,13 @@ import { Plus, Search } from 'lucide-react';
 import clsx from 'clsx';
 import { TextScramble } from '@/components/ui/TextScramble';
 import { Button } from '@/components/ui/Button';
+import { CreateProjectModal } from '@/components/dashboard/CreateProjectModal';
 
 export default function ProjectsPage() {
     const { projects, loadProjects, isLoading } = useStore();
     const [searchQuery, setSearchQuery] = useState('');
     const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
     useEffect(() => {
         loadProjects();
@@ -37,11 +39,15 @@ export default function ProjectsPage() {
                             <TextScramble text="PROJECT_INDEX" />
                         </h1>
                         <p className="text-muted font-mono text-xs md:text-sm tracking-wide">
-                            // MANAGE_RESEARCH_INITIATIVES
+                            {`// MANAGE_RESEARCH_INITIATIVES`}
                         </p>
                     </div>
 
-                    <Button leftIcon={<Plus size={18} />} className="text-xs md:text-sm w-full md:w-auto">
+                    <Button
+                        leftIcon={<Plus size={18} />}
+                        className="text-xs md:text-sm w-full md:w-auto"
+                        onClick={() => setIsCreateModalOpen(true)}
+                    >
                         INITIALIZE_PROJECT
                     </Button>
                 </header>
@@ -104,6 +110,12 @@ export default function ProjectsPage() {
                     )}
                 </div>
             </div>
-        </div>
+
+
+            <CreateProjectModal
+                isOpen={isCreateModalOpen}
+                onClose={() => setIsCreateModalOpen(false)}
+            />
+        </div >
     );
 }

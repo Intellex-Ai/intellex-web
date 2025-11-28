@@ -1,40 +1,97 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useStore } from '@/store';
-import { User, Bell, Shield, LogOut, Moon, Monitor } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { Bell, Shield, LogOut, Moon, Monitor, Key, Globe, Clock, Save } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { TextScramble } from '@/components/ui/TextScramble';
 
 export default function SettingsPage() {
-    const { user } = useStore();
+    const { logout } = useStore();
     const router = useRouter();
+    const [isLoading, setIsLoading] = useState(false);
+    const [apiKeys, setApiKeys] = useState({ openai: '', anthropic: '' });
 
     const handleSignOut = async () => {
-        await supabase.auth.signOut();
-        router.push('/login');
+        await logout();
+        router.push('/');
+    };
+
+    const handleSave = () => {
+        setIsLoading(true);
+        // Simulate save
+        setTimeout(() => {
+            setIsLoading(false);
+            // In a real app, we'd show a toast here
+        }, 1000);
     };
 
     const sections = [
         {
-            title: 'Profile',
-            icon: User,
+            title: 'General',
+            icon: Globe,
             content: (
                 <div className="space-y-6">
-                    <div className="flex items-center gap-6">
-                        <div className="w-20 h-20 rounded-full bg-black border border-white/10 flex items-center justify-center text-primary relative overflow-hidden group">
-                            <div className="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                            <User size={40} />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                            <label className="text-xs font-mono text-muted uppercase tracking-wider">Language</label>
+                            <div className="flex items-center justify-between p-3 bg-black/50 border border-white/10 rounded-sm">
+                                <span className="text-sm text-white font-mono">English (US)</span>
+                                <Globe size={14} className="text-muted" />
+                            </div>
                         </div>
-                        <div>
-                            <h3 className="text-xl font-bold text-white font-mono">{user?.name || 'Researcher'}</h3>
-                            <p className="text-muted font-mono text-sm">{user?.email || 'user@intellex.ai'}</p>
-                            <button className="mt-2 text-xs font-mono text-primary uppercase tracking-wider hover:underline">
-                                Change_Avatar
-                            </button>
+                        <div className="space-y-2">
+                            <label className="text-xs font-mono text-muted uppercase tracking-wider">Timezone</label>
+                            <div className="flex items-center justify-between p-3 bg-black/50 border border-white/10 rounded-sm">
+                                <span className="text-sm text-white font-mono">UTC-08:00 (Pacific Time)</span>
+                                <Clock size={14} className="text-muted" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )
+        },
+        {
+            title: 'API_Keys',
+            icon: Key,
+            content: (
+                <div className="space-y-6">
+                    <p className="text-xs text-muted font-mono mb-4">
+                        Provide your API keys to enable LLM capabilities. Keys are stored locally on your device.
+                    </p>
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <label className="text-xs font-mono text-primary uppercase tracking-wider">OpenAI API Key</label>
+                            <Input
+                                placeholder="sk-..."
+                                type="password"
+                                value={apiKeys.openai}
+                                onChange={(e) => setApiKeys({ ...apiKeys, openai: e.target.value })}
+                                className="font-mono text-sm"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-xs font-mono text-primary uppercase tracking-wider">Anthropic API Key</label>
+                            <Input
+                                placeholder="sk-ant-..."
+                                type="password"
+                                value={apiKeys.anthropic}
+                                onChange={(e) => setApiKeys({ ...apiKeys, anthropic: e.target.value })}
+                                className="font-mono text-sm"
+                            />
+                        </div>
+                        <div className="pt-2">
+                            <Button
+                                size="sm"
+                                onClick={handleSave}
+                                isLoading={isLoading}
+                                leftIcon={<Save size={14} />}
+                            >
+                                SAVE_KEYS
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -110,11 +167,11 @@ export default function SettingsPage() {
                         <TextScramble text="SYSTEM_CONFIG" />
                     </h1>
                     <p className="text-muted font-mono text-xs md:text-sm tracking-wide">
-                        // USER_PREFERENCES_AND_SECURITY
+                        {`// USER_PREFERENCES_AND_SECURITY`}
                     </p>
                 </header>
 
-                <div className="space-y-8 md:space-y-12">
+                <div className="space-y-8 md:space-y-12 pb-20">
                     {sections.map((section, index) => (
                         <section
                             key={index}

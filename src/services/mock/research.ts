@@ -59,12 +59,12 @@ export const MockResearchService = {
         return MOCK_PROJECTS.find((p) => p.id === id);
     },
 
-    createProject: async (goal: string): Promise<ResearchProject> => {
+    createProject: async (title: string, goal: string): Promise<ResearchProject> => {
         await new Promise((resolve) => setTimeout(resolve, 1000));
         const newProject: ResearchProject = {
-            id: `proj-${Date.now()}`,
+            id: `proj-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             userId: 'user-1',
-            title: 'New Research Project', // In real app, AI would generate title from goal
+            title,
             goal,
             status: 'active',
             createdAt: Date.now(),

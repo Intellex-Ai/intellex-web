@@ -47,7 +47,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
                         <span>{project.status}</span>
                     </Badge>
                     <span className="text-[10px] text-muted font-mono tracking-wider uppercase">
-                        // {formatDate(project.updatedAt)}
+                        {`// ${formatDate(project.updatedAt)}`}
                     </span>
                 </div>
 

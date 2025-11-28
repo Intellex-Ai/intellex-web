@@ -1,9 +1,9 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { User, ResearchProject, ResearchPlan, ChatMessage } from '@/types';
-import { MockAuthService } from '@/services/mock/auth';
-import { MockResearchService } from '@/services/mock/research';
-import { MockChatService } from '@/services/mock/chat';
+import { AuthService } from '@/services/api/auth';
+import { ProjectService } from '@/services/api/projects';
+import { ChatService } from '@/services/api/chat';
 
 interface AppState {
     user: User | null;
@@ -14,10 +14,10 @@ interface AppState {
     isLoading: boolean;
 
     // Actions
-    login: () => Promise<void>;
+    login: (email?: string, name?: string) => Promise<void>;
     logout: () => Promise<void>;
     loadProjects: () => Promise<void>;
-    createProject: (goal: string) => Promise<void>;
+    createProject: (title: string, goal: string) => Promise<ResearchProject | null>;
     selectProject: (projectId: string) => Promise<void>;
     sendMessage: (content: string) => Promise<void>;
 }
@@ -32,40 +32,53 @@ export const useStore = create<AppState>()(
             messages: [],
             isLoading: false,
 
-            login: async () => {
+            login: async (email = 'demo@intellex.ai', name = 'Demo Researcher') => {
                 set({ isLoading: true });
                 try {
-                    const user = await MockAuthService.login('demo@intellex.ai');
+                    const user = await AuthService.login(email, name);
                     set({ user });
+                } catch (error) {
+                    console.error('Login failed', error);
                 } finally {
                     set({ isLoading: false });
                 }
             },
 
             logout: async () => {
-                await MockAuthService.logout();
-                set({ user: null, activeProject: null, messages: [] });
+                set({ user: null, projects: [], activeProject: null, messages: [], activePlan: null });
             },
 
             loadProjects: async () => {
                 set({ isLoading: true });
                 try {
-                    const projects = await MockResearchService.getProjects();
+                    const projects = await ProjectService.list();
                     set({ projects });
+                } catch (error) {
+                    console.error('Failed to load projects', error);
                 } finally {
                     set({ isLoading: false });
                 }
             },
 
-            createProject: async (goal: string) => {
+            createProject: async (title: string, goal: string) => {
                 set({ isLoading: true });
                 try {
-                    const project = await MockResearchService.createProject(goal);
+                    const { user } = get();
+                    const project = await ProjectService.create(title, goal, user?.id);
+                    const [messages, plan] = await Promise.all([
+                        ChatService.getMessages(project.id),
+                        ProjectService.getPlan(project.id).catch(() => null)
+                    ]);
                     set({
-                        projects: [project, ...get().projects],
+                        projects: [project, ...get().projects.filter(p => p.id !== project.id)],
                         activeProject: project,
-                        messages: []
+                        activePlan: plan,
+                        messages
                     });
+                    return project;
+                } catch (error) {
+                    console.error('Failed to create project', error);
+                    return null;
                 } finally {
                     set({ isLoading: false });
                 }
@@ -74,14 +87,14 @@ export const useStore = create<AppState>()(
             selectProject: async (projectId: string) => {
                 set({ isLoading: true, activeProject: null, messages: [], activePlan: null });
                 try {
-                    const project = await MockResearchService.getProject(projectId);
-                    if (project) {
-                        const [messages, plan] = await Promise.all([
-                            MockChatService.getMessages(projectId),
-                            MockResearchService.getPlan(projectId)
-                        ]);
-                        set({ activeProject: project, messages, activePlan: plan });
-                    }
+                    const project = await ProjectService.get(projectId);
+                    const [messages, plan] = await Promise.all([
+                        ChatService.getMessages(projectId),
+                        ProjectService.getPlan(projectId).catch(() => null)
+                    ]);
+                    set({ activeProject: project, messages, activePlan: plan });
+                } catch (error) {
+                    console.error('Failed to load project', error);
                 } finally {
                     set({ isLoading: false });
                 }
@@ -91,13 +104,30 @@ export const useStore = create<AppState>()(
                 const { activeProject } = get();
                 if (!activeProject) return;
 
-                // Optimistic update or wait for server? Mock service is fast enough.
-                const userMsg = await MockChatService.sendMessage(activeProject.id, content);
-                set((state) => ({ messages: [...state.messages, userMsg] }));
+                set({ isLoading: true });
+                try {
+                    const { userMessage, agentMessage, plan } = await ChatService.sendMessage(activeProject.id, content);
+                    set((state) => {
+                        const updatedProjects = state.projects.map((project) =>
+                            project.id === activeProject.id
+                                ? { ...project, lastMessageAt: agentMessage.timestamp, updatedAt: agentMessage.timestamp }
+                                : project
+                        );
 
-                // Simulate agent response
-                const agentMsg = await MockChatService.simulateAgentResponse(activeProject.id);
-                set((state) => ({ messages: [...state.messages, agentMsg] }));
+                        return {
+                            projects: updatedProjects,
+                            activeProject: state.activeProject
+                                ? { ...state.activeProject, lastMessageAt: agentMessage.timestamp, updatedAt: agentMessage.timestamp }
+                                : null,
+                            messages: [...state.messages, userMessage, agentMessage],
+                            activePlan: plan ?? state.activePlan,
+                        };
+                    });
+                } catch (error) {
+                    console.error('Failed to send message', error);
+                } finally {
+                    set({ isLoading: false });
+                }
             },
         }),
         {
