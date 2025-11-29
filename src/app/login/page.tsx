@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useStore } from '@/store';
 import AuthLayout from '@/components/layout/AuthLayout';
 import AuthForm from '@/components/auth/AuthForm';
 
-export default function LoginPage() {
+function LoginContent() {
     const { user } = useStore();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -24,5 +24,13 @@ export default function LoginPage() {
         <AuthLayout title="Welcome Back" subtitle="Enter your credentials">
             <AuthForm type="login" redirectTo={redirect} />
         </AuthLayout>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense fallback={null}>
+            <LoginContent />
+        </Suspense>
     );
 }

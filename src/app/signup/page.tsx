@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useStore } from '@/store';
 import AuthLayout from '@/components/layout/AuthLayout';
 import AuthForm from '@/components/auth/AuthForm';
 
-export default function SignupPage() {
+function SignupContent() {
     const { user } = useStore();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -24,5 +24,13 @@ export default function SignupPage() {
         <AuthLayout title="Create Account" subtitle="Join the intelligence network">
             <AuthForm type="signup" redirectTo={redirect} />
         </AuthLayout>
+    );
+}
+
+export default function SignupPage() {
+    return (
+        <Suspense fallback={null}>
+            <SignupContent />
+        </Suspense>
     );
 }
