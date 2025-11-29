@@ -24,16 +24,23 @@ export function MfaSetup({ onComplete }: MfaSetupProps) {
             setStatus(null);
             const { data: authUser } = await supabase.auth.getUser();
             const userEmail = authUser?.user?.email ?? 'user@intellex.ai';
+            const userLabel = authUser?.user?.user_metadata?.display_name || userEmail;
 
             const { data: list, error: listError } = await supabase.auth.mfa.listFactors();
             if (listError) {
                 setError(listError.message ?? 'Failed to load MFA factors');
                 return;
             }
-            const existing = list?.totp?.find((f) => f.status === 'verified');
-            if (existing) {
+            const verified = list?.totp?.find((f) => f.status === 'verified');
+            if (verified) {
                 setStatus('TOTP already enabled');
                 return;
+            }
+
+            // Clean up any stale/unverified factors to avoid duplicate enroll errors.
+            const unverified = list?.totp?.filter((f) => f.status !== 'verified') || [];
+            for (const factor of unverified) {
+                await supabase.auth.mfa.unenroll({ factorId: factor.id }).catch(() => {});
             }
 
             const { data, error: enrollError } = await supabase.auth.mfa.enroll({ factorType: 'totp' });
@@ -46,12 +53,13 @@ export function MfaSetup({ onComplete }: MfaSetupProps) {
 
             const rawUri = data?.totp?.uri ?? null;
             if (rawUri) {
-                // Rebuild the TOTP URI with a stable issuer + user email label.
                 try {
                     const parsed = new URL(rawUri.replace('otpauth://', 'http://'));
                     const secret = parsed.searchParams.get('secret') ?? '';
                     const issuer = 'Intellex';
-                    const sanitized = `otpauth://totp/${issuer}:${userEmail}?secret=${secret}&issuer=${issuer}&digits=6&period=30`;
+                    const sanitized = `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(
+                        userLabel
+                    )}?secret=${encodeURIComponent(secret)}&issuer=${encodeURIComponent(issuer)}&digits=6&period=30`;
                     setTotpUri(sanitized);
                 } catch {
                     setTotpUri(rawUri);
