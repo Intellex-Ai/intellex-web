@@ -27,10 +27,10 @@ export function MfaSetup({ onComplete }: MfaSetupProps) {
 
             const { data: list, error: listError } = await supabase.auth.mfa.listFactors();
             if (listError) {
-                setError(listError.message);
+                setError(listError.message ?? 'Failed to load MFA factors');
                 return;
             }
-            const existing = list.totp?.find((f) => f.status === 'verified');
+            const existing = list?.totp?.find((f) => f.status === 'verified');
             if (existing) {
                 setStatus('TOTP already enabled');
                 return;
@@ -40,7 +40,7 @@ export function MfaSetup({ onComplete }: MfaSetupProps) {
                 factorType: 'totp',
             });
             if (enrollError) {
-                setError(enrollError.message);
+                setError(enrollError.message ?? 'Failed to enroll MFA factor');
                 return;
             }
             const rawUri = data?.totp?.uri ?? null;
@@ -75,10 +75,11 @@ export function MfaSetup({ onComplete }: MfaSetupProps) {
         try {
             const { error: verifyError } = await supabase.auth.mfa.verify({
                 factorId: challengeId,
+                challengeId,
                 code,
             });
             if (verifyError) {
-                throw verifyError;
+                throw new Error(verifyError.message ?? 'Verification failed');
             }
             setStatus('TOTP enabled. Save your backup codes!');
             onComplete?.();

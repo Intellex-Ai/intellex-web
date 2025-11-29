@@ -66,7 +66,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
             if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
                 refreshUser();
             }
-            if (event === 'TOKEN_EXPIRED') {
+            const eventName = event as unknown as string;
+            if (eventName === 'TOKEN_EXPIRED') {
                 clearSession();
                 router.push('/');
             }

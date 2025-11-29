@@ -50,7 +50,8 @@ export default function Navbar() {
             if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
                 refreshUser();
             }
-            if (event === 'TOKEN_EXPIRED') {
+            const eventName = event as unknown as string;
+            if (eventName === 'TOKEN_EXPIRED') {
                 logout();
             }
         });

@@ -271,6 +271,13 @@ export const useStore = create<AppState>()(persist((set, get) => ({
             },
 
             refreshUser: async () => {
+                const normalizeTheme = (prefs: unknown): { theme: 'system' | 'light' | 'dark' } => {
+                    const theme = (prefs as { theme?: string })?.theme;
+                    if (theme === 'light' || theme === 'dark' || theme === 'system') {
+                        return { theme };
+                    }
+                    return { theme: 'system' };
+                };
                 try {
                     // Prime session first to avoid transient AuthSessionMissingError on reload.
                     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
@@ -307,7 +314,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                                     email: profile.email,
                                     name: profile.name ?? profile.email ?? '',
                                     avatarUrl: profile.avatar_url ?? null,
-                                    preferences: (profile.preferences as { theme?: string }) ?? { theme: 'system' },
+                                    preferences: normalizeTheme(profile.preferences),
                                 },
                             });
                             return;
@@ -333,7 +340,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                                     email: profile.email,
                                     name: profile.name ?? profile.email ?? '',
                                     avatarUrl: profile.avatar_url,
-                                    preferences: (profile.preferences as { theme?: string }) ?? { theme: 'system' },
+                                    preferences: normalizeTheme(profile.preferences),
                                 },
                             });
                             return;
@@ -349,7 +356,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                                     (authUser.user_metadata as Record<string, unknown>)?.display_name as string ||
                                     authUser.email ||
                                     '',
-                                avatarUrl: null,
+                                avatarUrl: undefined,
                                 preferences: { theme: 'system' },
                             },
                         });

@@ -58,10 +58,14 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     }
 
     if (!response.ok) {
+        const detailMessage =
+            typeof data === 'object' && data !== null
+                ? (data as { detail?: string; message?: string }).detail ||
+                (data as { detail?: string; message?: string }).message
+                : undefined;
         const message =
             (typeof data === 'string' && data.trim().length > 0 && data) ||
-            (data && (data as { detail?: string; message?: string }).detail) ||
-            (data && (data as { detail?: string; message?: string }).message) ||
+            detailMessage ||
             response.statusText ||
             'Request failed';
         throw new ApiError(message, response.status, data);
