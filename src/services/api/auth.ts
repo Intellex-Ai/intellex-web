@@ -2,9 +2,10 @@ import { User } from '@/types';
 import { apiRequest } from './client';
 
 export const AuthService = {
-    login: (email: string, name?: string) => {
+    login: (email: string, name?: string, supabaseUserId?: string) => {
         const body: Record<string, unknown> = { email };
         if (name) body.name = name;
+        if (supabaseUserId) body.supabaseUserId = supabaseUserId;
         return apiRequest<User>('/auth/login', {
             method: 'POST',
             body,

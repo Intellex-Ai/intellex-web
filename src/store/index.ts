@@ -115,7 +115,8 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                     }
                     const fallbackName = displayName || (email.includes('@') ? email.split('@')[0] : email);
 
-                    const user = await AuthService.login(email, fallbackName);
+                    const supabaseUserId = authedUser?.user?.id;
+                    const user = await AuthService.login(email, fallbackName, supabaseUserId);
                     set({ user });
                 } catch (error) {
                     console.error('Login failed', error);
