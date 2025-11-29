@@ -45,7 +45,7 @@ export default function DashboardPage() {
                 const isCompleted = project.status === 'completed';
                 const sortKey = project.updatedAt || project.createdAt || nowTs;
                 const timestamp = new Date(sortKey);
-                return {
+                const item: ActivityItem = {
                     id: project.id,
                     type: isCompleted ? 'research_completed' : 'project_created',
                     description: isCompleted
@@ -53,12 +53,12 @@ export default function DashboardPage() {
                         : `Project updated: "${project.title}"`,
                     timestamp: timestamp.toLocaleString(),
                     meta: `Last updated ${timestamp.toLocaleDateString()}`,
-                    sortKey,
                 };
+                return { sortKey, item };
             })
             .sort((a, b) => b.sortKey - a.sortKey)
             .slice(0, 6)
-            .map(({ sortKey, ...rest }) => ({ ...rest }));
+            .map(({ item }) => item);
     }, [projects, nowTs]);
 
     return (
