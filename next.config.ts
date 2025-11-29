@@ -2,10 +2,13 @@ import type { NextConfig } from "next";
 
 const apiHost = process.env.API_HOST || 'http://localhost';
 const apiPort = process.env.API_PORT || '8000';
+const defaultProdApi =
+  process.env.API_DEFAULT_TARGET ||
+  (process.env.VERCEL ? 'https://intellex-api.vercel.app' : undefined);
 
 // Prefer explicit targets; otherwise fall back to local dev API.
 const envProxyTarget = process.env.API_PROXY_TARGET || process.env.NEXT_PUBLIC_API_BASE_URL;
-const inferredDefaultTarget = `${apiHost}:${apiPort}`;
+const inferredDefaultTarget = defaultProdApi || `${apiHost}:${apiPort}`;
 const resolvedProxyTarget =
   envProxyTarget && envProxyTarget.startsWith('http')
     ? envProxyTarget

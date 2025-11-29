@@ -1,5 +1,8 @@
-// Default to relative /api so Next.js rewrites can forward to the configured backend.
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || '/api').replace(/\/$/, '');
+// Default to a known prod API host on Vercel; otherwise use env or relative /api.
+const inferredProdApi =
+    process.env.NEXT_PUBLIC_API_BASE_URL ||
+    (process.env.VERCEL ? 'https://intellex-api.vercel.app' : undefined);
+const API_BASE_URL = (inferredProdApi || '/api').replace(/\/$/, '');
 
 export class ApiError extends Error {
     status: number;
