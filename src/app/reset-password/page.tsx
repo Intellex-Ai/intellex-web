@@ -21,7 +21,10 @@ export default function ResetPasswordRequest() {
         setStatus(null);
 
         try {
-            const redirectUrl = `${window.location.origin}/reset-password/update`;
+            const siteUrl =
+                process.env.NEXT_PUBLIC_SITE_URL ||
+                (typeof window !== 'undefined' ? window.location.origin : 'https://intellex-web.vercel.app');
+            const redirectUrl = `${siteUrl}/reset-password/update`;
             const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
                 redirectTo: redirectUrl,
             });

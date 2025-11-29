@@ -11,9 +11,10 @@ import Link from 'next/link';
 
 interface AuthFormProps {
     type: 'login' | 'signup';
+    redirectTo?: string;
 }
 
-export default function AuthForm({ type }: AuthFormProps) {
+export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormProps) {
     const [email, setEmail] = useState('');
     const [name, setName] = useState('');
     const [password, setPassword] = useState('');
@@ -42,7 +43,7 @@ export default function AuthForm({ type }: AuthFormProps) {
 
             const displayName = providedName || undefined;
             await login(userEmail, safePassword, displayName, type);
-            router.push('/dashboard');
+            router.push(redirectTo || '/dashboard');
         } catch (err: unknown) {
             if (err instanceof Error) {
                 setError(err.message);
