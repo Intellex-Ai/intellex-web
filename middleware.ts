@@ -16,7 +16,8 @@ export function middleware(req: NextRequest) {
         req.cookies.has('sb-access-token') ||
         req.cookies.has('sb:token') ||
         req.cookies.has('supabase-auth-token') ||
-        req.cookies.has('supabase-auth-token.0');
+        req.cookies.has('supabase-auth-token.0') ||
+        req.cookies.has('intellex_session');
 
     if (!hasSession) {
         const loginUrl = new URL('/login', req.url);

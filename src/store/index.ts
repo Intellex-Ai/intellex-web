@@ -9,6 +9,16 @@ import { supabase } from '@/lib/supabase';
 import { API_BASE_URL } from '@/services/api/client';
 import { MockResearchService } from '@/services/mock/research';
 
+const SESSION_COOKIE = 'intellex_session';
+const setSessionCookie = (isLoggedIn: boolean) => {
+    if (typeof document === 'undefined') return;
+    if (isLoggedIn) {
+        document.cookie = `${SESSION_COOKIE}=1; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+    } else {
+        document.cookie = `${SESSION_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
+    }
+};
+
 interface AppState {
     user: User | null;
     projects: ResearchProject[];
@@ -121,6 +131,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                 } catch (error) {
                     console.error('Login failed', error);
                     set({ user: null });
+                    setSessionCookie(false);
                     if (error instanceof Error) {
                         if (error.message?.toLowerCase().includes('email not confirmed')) {
                             throw new Error('Please confirm your email (or enable dev autoconfirm) before signing in.');
@@ -129,12 +140,15 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                     }
                     throw new Error('Authentication failed');
                 } finally {
+                    const { user } = get();
+                    setSessionCookie(Boolean(user));
                     set({ isLoading: false });
                 }
             },
 
             logout: async () => {
                 await supabase.auth.signOut();
+                setSessionCookie(false);
                 set({ user: null, projects: [], activeProject: null, messages: [], activePlan: null });
             },
 
