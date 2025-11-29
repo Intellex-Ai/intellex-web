@@ -5,6 +5,21 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { useStore } from '@/store';
 
+const SESSION_COOKIE = 'intellex_session';
+const setSessionCookie = (isLoggedIn: boolean) => {
+    if (typeof document === 'undefined') return;
+    const siteDomain = process.env.NEXT_PUBLIC_SITE_URL
+        ? new URL(process.env.NEXT_PUBLIC_SITE_URL).hostname
+        : undefined;
+    const domainPart = siteDomain ? `; Domain=${siteDomain}` : '';
+    const securePart = window.location.protocol === 'https:' ? '; Secure' : '';
+    if (isLoggedIn) {
+        document.cookie = `${SESSION_COOKIE}=1; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax${domainPart}${securePart}`;
+    } else {
+        document.cookie = `${SESSION_COOKIE}=; path=/; max-age=0; SameSite=Lax${domainPart}${securePart}`;
+    }
+};
+
 function CallbackContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -72,6 +87,7 @@ function CallbackContent() {
                 }
                 setStatus('success');
                 setMessage('Email verified. Redirecting to your dashboard...');
+                setSessionCookie(true);
                 await refreshUser();
                 setTimeout(() => router.replace('/dashboard'), 800);
             } catch (err) {

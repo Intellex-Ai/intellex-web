@@ -16,10 +16,11 @@ const setSessionCookie = (isLoggedIn: boolean) => {
         ? new URL(process.env.NEXT_PUBLIC_SITE_URL).hostname
         : undefined;
     const domainPart = siteDomain ? `; Domain=${siteDomain}` : '';
+    const securePart = typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : '';
     if (isLoggedIn) {
-        document.cookie = `${SESSION_COOKIE}=1; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax${domainPart}`;
+        document.cookie = `${SESSION_COOKIE}=1; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax${domainPart}${securePart}`;
     } else {
-        document.cookie = `${SESSION_COOKIE}=; path=/; max-age=0; SameSite=Lax${domainPart}`;
+        document.cookie = `${SESSION_COOKIE}=; path=/; max-age=0; SameSite=Lax${domainPart}${securePart}`;
     }
 };
 
