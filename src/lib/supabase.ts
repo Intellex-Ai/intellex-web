@@ -4,11 +4,11 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const isPlaceholderConfig = !supabaseUrl || !supabaseKey || supabaseKey.includes('placeholder');
 
-type AuthOnlyClient = ReturnType<typeof createClient<any, any, any>>;
+type AuthOnlyClient = ReturnType<typeof createClient>;
 
 const createSupabaseClient = (): AuthOnlyClient => {
-    if (!isPlaceholderConfig) {
-        return createClient(supabaseUrl, supabaseKey) as AuthOnlyClient;
+    if (!isPlaceholderConfig && supabaseUrl && supabaseKey) {
+        return createClient(supabaseUrl, supabaseKey);
     }
 
     // Graceful fallback when env vars aren't set or are using placeholder values (local mocks/offline dev)
@@ -26,6 +26,8 @@ const createSupabaseClient = (): AuthOnlyClient => {
         mfa: {
             listFactors: async () => ({ data: { totp: [] }, error: { message: 'Supabase not configured' } }),
             enroll: async () => ({ data: { id: '', totp: { uri: '' } }, error: { message: 'Supabase not configured' } }),
+            challenge: async () => ({ data: { id: '' }, error: { message: 'Supabase not configured' } }),
+            unenroll: async () => ({ data: null, error: { message: 'Supabase not configured' } }),
             verify: async () => ({ data: null, error: { message: 'Supabase not configured' } }),
         },
     };

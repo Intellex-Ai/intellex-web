@@ -40,7 +40,7 @@ export async function POST(req: Request) {
         return serverError('Supabase service role not configured');
     }
 
-    let payload: { email?: string; name?: string; avatarUrl?: string };
+    let payload: { email?: string; name?: string; avatarUrl?: string; title?: string; organization?: string; location?: string; bio?: string };
     try {
         payload = await req.json();
     } catch {
@@ -50,6 +50,10 @@ export async function POST(req: Request) {
     const email = payload.email?.trim().toLowerCase();
     const name = payload.name?.trim();
     const avatarUrl = payload.avatarUrl;
+    const title = payload.title?.trim();
+    const organization = payload.organization?.trim();
+    const location = payload.location?.trim();
+    const bio = payload.bio?.trim();
 
     if (!email || !name) {
         return badRequest('email and name are required');
@@ -68,6 +72,23 @@ export async function POST(req: Request) {
             return badRequest('User not found in auth');
         }
 
+        // Fetch existing preferences to merge profile details without losing theme selection.
+        const { data: existingProfile } = await admin
+            .from('users')
+            .select('preferences')
+            .eq('id', found.id)
+            .single();
+
+        const existingPrefs = (existingProfile?.preferences as Record<string, unknown>) || {};
+        const mergedPreferences = {
+            ...existingPrefs,
+            theme: (existingPrefs as { theme?: string }).theme || 'system',
+            ...(title !== undefined ? { title } : {}),
+            ...(organization !== undefined ? { organization } : {}),
+            ...(location !== undefined ? { location } : {}),
+            ...(bio !== undefined ? { bio } : {}),
+        };
+
         // Update auth metadata (display_name) and avatar if provided
         const { error: updateErr } = await admin.auth.admin.updateUserById(found.id, {
             user_metadata: { display_name: name, avatar_url: avatarUrl },
@@ -84,7 +105,7 @@ export async function POST(req: Request) {
                 email,
                 name,
                 avatar_url: avatarUrl ?? null,
-                preferences: { theme: 'system' },
+                preferences: mergedPreferences,
             })
             .select()
             .single();

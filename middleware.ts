@@ -12,12 +12,7 @@ export function middleware(req: NextRequest) {
     }
 
     // Check for Supabase session cookies
-    const hasSession =
-        req.cookies.has('sb-access-token') ||
-        req.cookies.has('sb:token') ||
-        req.cookies.has('supabase-auth-token') ||
-        req.cookies.has('supabase-auth-token.0') ||
-        req.cookies.has('intellex_session');
+    const hasSession = req.cookies.has('intellex_session');
 
     if (!hasSession) {
         const loginUrl = new URL('/login', req.url);

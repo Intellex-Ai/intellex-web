@@ -20,9 +20,10 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [mfaCode, setMfaCode] = useState('');
     const router = useRouter();
 
-    const { login } = useStore();
+    const { login, verifyMfa, mfaRequired } = useStore();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -42,14 +43,31 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
             }
 
             const displayName = providedName || undefined;
-            await login(userEmail, safePassword, displayName, type);
-            router.push(redirectTo || '/dashboard');
+            const success = await login(userEmail, safePassword, displayName, type);
+            const nextMfa = useStore.getState().mfaRequired;
+            if (success && !nextMfa) {
+                router.push(redirectTo || '/dashboard');
+            }
         } catch (err: unknown) {
             if (err instanceof Error) {
                 setError(err.message);
             } else {
                 setError('An unknown error occurred');
             }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleVerifyMfa = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        setError(null);
+        try {
+            await verifyMfa(mfaCode.trim());
+            router.push(redirectTo || '/dashboard');
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to verify MFA code');
         } finally {
             setLoading(false);
         }
@@ -82,7 +100,8 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
                 </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+            {!mfaRequired ? (
+                <form onSubmit={handleSubmit} className="flex flex-col gap-3">
                 {error && (
                     <div className="p-3 bg-error/10 border border-error text-error text-xs font-mono uppercase">
                         {error}
@@ -154,7 +173,31 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
                         </a>
                     </div>
                 </div>
-            </form>
+                </form>
+            ) : (
+                <form onSubmit={handleVerifyMfa} className="flex flex-col gap-3">
+                    {error && (
+                        <div className="p-3 bg-error/10 border border-error text-error text-xs font-mono uppercase">
+                            {error}
+                        </div>
+                    )}
+                    <Input
+                        type="text"
+                        label="MFA code"
+                        placeholder="123456"
+                        value={mfaCode}
+                        onChange={(e) => setMfaCode(e.target.value)}
+                        required
+                        leftIcon={<Lock size={16} />}
+                    />
+                    <Button type="submit" className="w-full mt-1" isLoading={loading} size="lg" variant="primary">
+                        Verify MFA
+                    </Button>
+                    <p className="text-xs font-mono text-muted">
+                        Enter the 6-digit code from your authenticator app to complete sign-in.
+                    </p>
+                </form>
+            )}
         </div>
     );
 }

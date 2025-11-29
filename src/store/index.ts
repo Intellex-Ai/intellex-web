@@ -8,6 +8,14 @@ import { ApiError } from '@/services/api/client';
 import { supabase } from '@/lib/supabase';
 import { API_BASE_URL } from '@/services/api/client';
 
+type ProfileRow = {
+    id: string;
+    email: string;
+    name?: string | null;
+    avatar_url?: string | null;
+    preferences?: unknown;
+};
+
 const SESSION_COOKIE = 'intellex_session';
 const getSiteBaseUrl = () => {
     if (typeof window !== 'undefined') return window.location.origin;
@@ -35,10 +43,14 @@ interface AppState {
     activePlan: ResearchPlan | null;
     messages: ChatMessage[];
     isLoading: boolean;
+    mfaRequired: boolean;
+    mfaChallengeId: string | null;
+    mfaFactorId: string | null;
     timezone: string;
 
     // Actions
-    login: (email: string, password: string, name?: string, mode?: 'login' | 'signup') => Promise<void>;
+    login: (email: string, password: string, name?: string, mode?: 'login' | 'signup') => Promise<boolean>;
+    verifyMfa: (code: string) => Promise<void>;
     logout: () => Promise<void>;
     loadProjects: () => Promise<void>;
     createProject: (title: string, goal: string) => Promise<ResearchProject | null>;
@@ -56,9 +68,12 @@ export const useStore = create<AppState>()(persist((set, get) => ({
     activePlan: null,
     messages: [],
     isLoading: false,
+    mfaRequired: false,
+    mfaChallengeId: null,
+    mfaFactorId: null,
     timezone: 'UTC',
 
-            login: async (email: string, password: string, name?: string, mode: 'login' | 'signup' = 'login') => {
+            login: async (email: string, password: string, name?: string, mode: 'login' | 'signup' = 'login'): Promise<boolean> => {
                 set({ isLoading: true });
                 try {
                     if (!email || !password) {
@@ -157,8 +172,28 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                     const fallbackName = displayName || (email.includes('@') ? email.split('@')[0] : email);
 
                     const supabaseUserId = authedUser?.user?.id;
+                    // MFA gate: if a verified TOTP factor exists, start challenge and await code.
+                    const { data: factors } = await supabase.auth.mfa.listFactors();
+                    const verifiedTotp = factors?.totp?.find((f) => f.status === 'verified');
+                    if (verifiedTotp) {
+                        const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({
+                            factorId: verifiedTotp.id,
+                        });
+                        if (challengeError || !challenge?.id) {
+                            throw challengeError || new Error('Unable to start MFA challenge.');
+                        }
+                        set({
+                            mfaRequired: true,
+                            mfaChallengeId: challenge.id,
+                            mfaFactorId: verifiedTotp.id,
+                            isLoading: false,
+                        });
+                        return false;
+                    }
+
                     const user = await AuthService.login(email, fallbackName, supabaseUserId);
                     set({ user });
+                    return true;
                 } catch (error) {
                     console.error('Login failed', error);
                     set({ user: null });
@@ -184,6 +219,38 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                 } finally {
                     const { user } = get();
                     setSessionCookie(Boolean(user));
+                    set({ isLoading: false });
+                }
+            },
+
+            verifyMfa: async (code: string) => {
+                const { mfaChallengeId, mfaFactorId, user } = get();
+                if (!mfaChallengeId || !mfaFactorId) {
+                    throw new Error('No MFA challenge in progress.');
+                }
+                set({ isLoading: true });
+                try {
+                    const { error: verifyError } = await supabase.auth.mfa.verify({
+                        factorId: mfaFactorId,
+                        challengeId: mfaChallengeId,
+                        code,
+                    });
+                    if (verifyError) {
+                        throw new Error(verifyError.message ?? 'MFA verification failed');
+                    }
+                    // After successful MFA, refresh user and reset flags.
+                    await get().refreshUser();
+                    set({
+                        mfaRequired: false,
+                        mfaChallengeId: null,
+                        mfaFactorId: null,
+                    });
+                } catch (err) {
+                    throw err instanceof Error ? err : new Error('MFA verification failed');
+                } finally {
+                    // If user was set during refresh, keep cookie in sync.
+                    const { user: refreshed } = get();
+                    setSessionCookie(Boolean(refreshed || user));
                     set({ isLoading: false });
                 }
             },
@@ -296,12 +363,12 @@ export const useStore = create<AppState>()(persist((set, get) => ({
             },
 
             refreshUser: async () => {
-                const normalizeTheme = (prefs: unknown): { theme: 'system' | 'light' | 'dark' } => {
-                    const theme = (prefs as { theme?: string })?.theme;
-                    if (theme === 'light' || theme === 'dark' || theme === 'system') {
-                        return { theme };
-                    }
-                    return { theme: 'system' };
+                const normalizePreferences = (prefs: unknown): User['preferences'] => {
+                    const incoming = (prefs as User['preferences']) || { theme: 'system' };
+                    const theme = incoming.theme;
+                    const normalizedTheme: User['preferences']['theme'] =
+                        theme === 'light' || theme === 'dark' || theme === 'system' ? theme : 'system';
+                    return { ...incoming, theme: normalizedTheme };
                 };
                 try {
                     // Prime session first to avoid transient AuthSessionMissingError on reload.
@@ -332,17 +399,19 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                         const profileRes = await fetch(`/api/profile?email=${encodeURIComponent(authUser.email ?? '')}`);
                         if (profileRes.ok) {
                             const data = await profileRes.json();
-                            const profile = data.user;
-                            set({
-                                user: {
-                                    id: profile.id,
-                                    email: profile.email,
-                                    name: profile.name ?? profile.email ?? '',
-                                    avatarUrl: profile.avatar_url ?? null,
-                                    preferences: normalizeTheme(profile.preferences),
-                                },
-                            });
-                            return;
+                            const profile = (data?.user as ProfileRow | null) ?? null;
+                            if (profile) {
+                                set({
+                                    user: {
+                                        id: profile.id,
+                                        email: profile.email,
+                                        name: profile.name ?? profile.email ?? '',
+                                        avatarUrl: profile.avatar_url ?? undefined,
+                                        preferences: normalizePreferences(profile.preferences),
+                                    },
+                                });
+                                return;
+                            }
                         }
 
                         // Fallback: backend auth/me (service role)
@@ -356,7 +425,8 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                             .from('users')
                             .select('id, email, name, avatar_url, preferences')
                             .eq('email', authUser.email ?? '')
-                            .limit(1);
+                            .limit(1)
+                            .returns<ProfileRow[]>();
                         if (!profileError && profiles && profiles.length > 0) {
                             const profile = profiles[0];
                             set({
@@ -364,8 +434,8 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                                     id: profile.id,
                                     email: profile.email,
                                     name: profile.name ?? profile.email ?? '',
-                                    avatarUrl: profile.avatar_url,
-                                    preferences: normalizeTheme(profile.preferences),
+                                    avatarUrl: profile.avatar_url ?? undefined,
+                                    preferences: normalizePreferences(profile.preferences),
                                 },
                             });
                             return;

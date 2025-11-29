@@ -68,7 +68,7 @@ const DigitalClockFace: React.FC<{ hours: string; minutes: string; scale?: Scale
                 <SegmentDigit digit={safeHours[0]} size={digitSize} colorClass={colorClass} />
                 <SegmentDigit digit={safeHours[1]} size={digitSize} colorClass={colorClass} />
             </div>
-            <div className={`flex flex-col ${colonGap}`}>
+            <div className={`flex flex-col ${colonGap} animate-blink-digital`}>
                 <span className={`${colonSize} ${colorClass}`} />
                 <span className={`${colonSize} ${colorClass}`} />
             </div>

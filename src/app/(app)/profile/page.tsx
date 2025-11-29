@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { useStore } from '@/store';
-import { User, Mail, CreditCard, BarChart3, Edit2, Save, CheckCircle2 } from 'lucide-react';
+import { User, Mail, CreditCard, BarChart3, Edit2, Save, CheckCircle2, Briefcase, Building2, MapPin, FileText, Shield } from 'lucide-react';
 import { TextScramble } from '@/components/ui/TextScramble';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -20,6 +20,10 @@ export default function ProfilePage() {
         name: user?.name || '',
         email: user?.email || '',
         avatarUrl: user?.avatarUrl || '',
+        title: user?.preferences?.title || '',
+        organization: user?.preferences?.organization || '',
+        location: user?.preferences?.location || '',
+        bio: user?.preferences?.bio || '',
     });
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -34,6 +38,10 @@ export default function ProfilePage() {
                 name: user.name || '',
                 email: user.email || '',
                 avatarUrl: user.avatarUrl || '',
+                title: user.preferences?.title || '',
+                organization: user.preferences?.organization || '',
+                location: user.preferences?.location || '',
+                bio: user.preferences?.bio || '',
             });
         }
     }, [user]);
@@ -54,6 +62,10 @@ export default function ProfilePage() {
                     email: formData.email.trim().toLowerCase(),
                     name: formData.name.trim(),
                     avatarUrl: formData.avatarUrl || undefined,
+                    title: formData.title,
+                    organization: formData.organization,
+                    location: formData.location,
+                    bio: formData.bio,
                 }),
             });
             if (!res.ok) {
@@ -90,7 +102,7 @@ export default function ProfilePage() {
 
     useEffect(() => {
         loadPending();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [formData.email]);
 
     const handleAvatarUpload = async (file: File) => {
@@ -123,7 +135,7 @@ export default function ProfilePage() {
             {/* Static Cyber Grid Background */}
             <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[length:50px_50px] [mask-image:radial-gradient(circle_at_center,black_40%,transparent_100%)] pointer-events-none" />
 
-            <div className="relative z-10 p-4 md:p-8 max-w-[1100px] mx-auto lg:mx-0">
+            <div className="relative z-10 p-4 md:p-8 w-full">
                 {/* Header */}
                 <header className="mb-8 md:mb-12">
                     <h1 className="text-2xl md:text-4xl font-mono font-bold mb-2 tracking-tighter text-white uppercase">
@@ -138,111 +150,237 @@ export default function ProfilePage() {
                     {/* Left Column: Identity */}
                     <div className="lg:col-span-2 space-y-6">
                         <section className="animate-in fade-in slide-in-from-bottom-4 fill-mode-backwards" style={{ animationDelay: '0ms' }}>
-                            <div className="flex items-center gap-3 mb-4 pb-2 border-b border-white/10">
-                                <User size={20} className="text-primary" />
-                                <h2 className="text-lg font-bold text-white uppercase tracking-wide font-mono">Identity</h2>
+                            <div className="flex items-center justify-between mb-6 pb-2 border-b border-white/10">
+                                <div className="flex items-center gap-3">
+                                    <User size={20} className="text-primary" />
+                                    <h2 className="text-lg font-bold text-white uppercase tracking-wide font-mono">Identity_Card</h2>
+                                </div>
+                                {!isEditing && (
+                                    <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => setIsEditing(true)}
+                                        leftIcon={<Edit2 size={14} />}
+                                        className="text-xs font-mono uppercase tracking-wider hover:bg-white/5 h-7"
+                                    >
+                                        Edit_Profile
+                                    </Button>
+                                )}
                             </div>
 
-                            <div className="bg-white/5 border border-white/10 p-6 rounded-lg relative group overflow-hidden">
-                                <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                    {!isEditing && (
-                                        <button
-                                            onClick={() => setIsEditing(true)}
-                                            className="text-xs font-mono text-primary flex items-center gap-2 hover:underline uppercase tracking-wider"
-                                        >
-                                            <Edit2 size={12} /> Edit_Profile
-                                        </button>
-                                    )}
-                                </div>
+                            <div className="relative group">
+                                <div className="relative bg-white/5 border border-white/10 p-5 md:p-6 rounded-lg overflow-hidden">
+                                    {/* Original top highlight */}
+                                    <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
 
-                                <div className="flex flex-col md:flex-row gap-6 items-start">
-                                    <div className="flex-shrink-0 relative">
-                                        <div className="w-24 h-24 rounded-full bg-black border border-white/10 flex items-center justify-center text-primary relative overflow-hidden shadow-[0_0_30px_-10px_rgba(255,77,0,0.3)]">
-                                            {formData.avatarUrl ? (
-                                                // eslint-disable-next-line @next/next/no-img-element
-                                                <img src={formData.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
-                                            ) : (
-                                                <User size={48} />
-                                            )}
-                                            {isEditing && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => fileInputRef.current?.click()}
-                                                    className="absolute inset-0 bg-black/60 text-xs text-white font-mono uppercase opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                                                >
-                                                    Change
-                                                </button>
-                                            )}
-                                            <input
-                                                ref={fileInputRef}
-                                                type="file"
-                                                accept="image/*"
-                                                className="hidden"
-                                                onChange={(e) => {
-                                                    const f = e.target.files?.[0];
-                                                    if (f) handleAvatarUpload(f);
-                                                }}
-                                            />
-                                        </div>
-                                        {avatarUploading && <p className="text-xs text-muted font-mono mt-2">Uploading...</p>}
-                                    </div>
+                                    {/* Background decoration - kept subtle */}
+                                    <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none opacity-50" />
+                                    <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-500/5 rounded-full blur-3xl -ml-24 -mb-24 pointer-events-none opacity-50" />
 
-                                    <div className="flex-1 min-w-0 space-y-6">
-                                        <div className="space-y-2">
-                                            <label className="text-xs font-mono text-muted uppercase tracking-wider flex items-center gap-2">
-                                                <User size={12} /> Display Name
-                                            </label>
-                                            {isEditing ? (
-                                                <Input
-                                                    value={formData.name}
-                                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                                    className="font-mono"
-                                                />
-                                            ) : (
-                                                <p className="text-xl text-white font-mono font-bold">{formData.name}</p>
-                                            )}
-                                        </div>
+                                    <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-6 items-center relative z-10">
+                                        {/* Avatar Column */}
+                                        <div className="flex flex-col items-center gap-3">
+                                            <div className="relative group/avatar">
+                                                <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-black border-2 border-white/10 flex items-center justify-center text-primary relative overflow-hidden shadow-[0_0_40px_-10px_rgba(255,77,0,0.4)] transition-all duration-300 group-hover/avatar:border-primary/50 group-hover/avatar:shadow-[0_0_60px_-10px_rgba(255,77,0,0.6)]">
+                                                    {formData.avatarUrl ? (
+                                                        // eslint-disable-next-line @next/next/no-img-element
+                                                        <img src={formData.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <User size={48} className="opacity-50" />
+                                                    )}
 
-                                        <div className="space-y-2">
-                                            <label className="text-xs font-mono text-muted uppercase tracking-wider flex items-center gap-2">
-                                                <Mail size={12} /> Email Address
-                                            </label>
-                                            <div className="space-y-2">
-                                                <Input
-                                                    value={formData.email}
-                                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                                    className="font-mono"
-                                                />
-                                                {pendingInfo && (
-                                                    <div className="text-xs text-muted font-mono flex flex-wrap items-center gap-2">
-                                                        <span>Email {pendingInfo.emailConfirmed ? 'confirmed' : 'pending confirmation'}</span>
-                                                        {pendingInfo.lastSignIn && <span>• Last sign-in: {pendingInfo.lastSignIn}</span>}
+                                                    {/* Upload Overlay */}
+                                                    {(isEditing || !formData.avatarUrl) && (
+                                                        <div
+                                                            onClick={() => fileInputRef.current?.click()}
+                                                            className={`absolute inset-0 bg-black/70 flex flex-col items-center justify-center cursor-pointer transition-opacity duration-300 ${isEditing ? 'opacity-0 group-hover/avatar:opacity-100' : 'opacity-0'}`}
+                                                        >
+                                                            <div className="p-2 bg-white/10 rounded-full mb-1 backdrop-blur-sm">
+                                                                <Edit2 size={16} className="text-white" />
+                                                            </div>
+                                                            <span className="text-[9px] font-mono uppercase text-white tracking-wider">Change</span>
+                                                        </div>
+                                                    )}
+
+                                                    <input
+                                                        ref={fileInputRef}
+                                                        type="file"
+                                                        accept="image/*"
+                                                        className="hidden"
+                                                        onChange={(e) => {
+                                                            const f = e.target.files?.[0];
+                                                            if (f) handleAvatarUpload(f);
+                                                        }}
+                                                    />
+                                                </div>
+                                                {avatarUploading && (
+                                                    <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 w-full text-center">
+                                                        <span className="text-[9px] text-primary font-mono animate-pulse">UPLOADING...</span>
                                                     </div>
                                                 )}
                                             </div>
+
+                                            {/* User Status Badge */}
+                                            <div className="flex flex-col items-center gap-1">
+                                                <div className="px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md">
+                                                    <span className="text-[9px] font-mono text-white/80 uppercase tracking-wider flex items-center gap-1.5">
+                                                        <div className={`w-1.5 h-1.5 rounded-full ${pendingInfo?.emailConfirmed ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]' : 'bg-yellow-500'}`} />
+                                                        {pendingInfo?.emailConfirmed ? 'Verified' : 'Unverified'}
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </div>
 
-                                        {isEditing && (
-                                            <div className="flex flex-wrap gap-3 pt-2 items-center">
-                                                <Button
-                                                    size="sm"
-                                                    onClick={handleSave}
-                                                    isLoading={isLoading}
-                                                    leftIcon={<Save size={14} />}
-                                                >
-                                                    SAVE_CHANGES
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    onClick={() => setIsEditing(false)}
-                                                >
-                                                    CANCEL
-                                                </Button>
-                                                {profileStatus && <span className="text-xs text-primary font-mono">{profileStatus}</span>}
-                                                {profileError && <span className="text-xs text-error font-mono">{profileError}</span>}
+                                        {/* Info Column */}
+                                        <div className="flex-1 min-w-0 space-y-4">
+                                            {/* Header / Name Section */}
+                                            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 pb-4 border-b border-white/5">
+                                                <div className="space-y-0.5">
+                                                    {isEditing ? (
+                                                        <div className="space-y-1">
+                                                            <label className="text-[9px] font-mono text-primary uppercase tracking-wider">Display Name</label>
+                                                            <Input
+                                                                value={formData.name}
+                                                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                                                className="font-mono text-lg font-bold bg-white/5 border-white/10 focus:border-primary/50 h-10"
+                                                                placeholder="ENTER_NAME"
+                                                            />
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            <h3 className="text-xl md:text-2xl text-white font-mono font-bold tracking-tight">
+                                                                {formData.name || 'Anonymous User'}
+                                                            </h3>
+                                                            <p className="text-xs font-mono text-muted flex items-center gap-2">
+                                                                @{formData.email.split('@')[0]}
+                                                            </p>
+                                                        </>
+                                                    )}
+                                                </div>
+
+                                                {isEditing && (
+                                                    <div className="flex items-center gap-2 self-start">
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            onClick={() => setIsEditing(false)}
+                                                            className="text-[10px] h-8 hover:bg-white/5 text-muted hover:text-white"
+                                                        >
+                                                            CANCEL
+                                                        </Button>
+                                                        <Button
+                                                            size="sm"
+                                                            onClick={handleSave}
+                                                            isLoading={isLoading}
+                                                            leftIcon={<Save size={12} />}
+                                                            className="bg-primary hover:bg-primary/90 text-black font-bold h-8 text-[10px]"
+                                                        >
+                                                            SAVE
+                                                        </Button>
+                                                    </div>
+                                                )}
                                             </div>
-                                        )}
+
+                                            {/* Status Messages */}
+                                            {(profileStatus || profileError) && (
+                                                <div className={`p-2 rounded-sm border ${profileStatus ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-error/10 border-error/20 text-error'} font-mono text-[10px] flex items-center gap-2`}>
+                                                    {profileStatus ? <CheckCircle2 size={12} /> : <Shield size={12} />}
+                                                    {profileStatus || profileError}
+                                                </div>
+                                            )}
+
+                                            {/* Form Grid */}
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[9px] font-mono text-muted uppercase tracking-wider flex items-center gap-1.5">
+                                                        <Mail size={10} /> Email Address
+                                                    </label>
+                                                    <div className="relative">
+                                                        <Input
+                                                            value={formData.email}
+                                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                                            className="font-mono bg-black/20 border-white/10 text-white/90 h-9 text-xs"
+                                                            disabled={!isEditing}
+                                                        />
+                                                        {!isEditing && <div className="absolute inset-0 bg-transparent cursor-default" />}
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[9px] font-mono text-muted uppercase tracking-wider flex items-center gap-1.5">
+                                                        <Briefcase size={10} /> Title / Role
+                                                    </label>
+                                                    {isEditing ? (
+                                                        <Input
+                                                            value={formData.title}
+                                                            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                                            className="font-mono bg-black/20 border-white/10 h-9 text-xs"
+                                                            placeholder="e.g. Senior Researcher"
+                                                        />
+                                                    ) : (
+                                                        <div className="px-3 py-1.5 bg-white/5 border border-white/5 rounded-sm min-h-[36px] flex items-center">
+                                                            <span className="text-xs text-white font-mono">{formData.title || '—'}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[9px] font-mono text-muted uppercase tracking-wider flex items-center gap-1.5">
+                                                        <Building2 size={10} /> Organization
+                                                    </label>
+                                                    {isEditing ? (
+                                                        <Input
+                                                            value={formData.organization}
+                                                            onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
+                                                            className="font-mono bg-black/20 border-white/10 h-9 text-xs"
+                                                            placeholder="e.g. Intellex Labs"
+                                                        />
+                                                    ) : (
+                                                        <div className="px-3 py-1.5 bg-white/5 border border-white/5 rounded-sm min-h-[36px] flex items-center">
+                                                            <span className="text-xs text-white font-mono">{formData.organization || '—'}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[9px] font-mono text-muted uppercase tracking-wider flex items-center gap-1.5">
+                                                        <MapPin size={10} /> Location
+                                                    </label>
+                                                    {isEditing ? (
+                                                        <Input
+                                                            value={formData.location}
+                                                            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                                                            className="font-mono bg-black/20 border-white/10 h-9 text-xs"
+                                                            placeholder="e.g. San Francisco, CA"
+                                                        />
+                                                    ) : (
+                                                        <div className="px-3 py-1.5 bg-white/5 border border-white/5 rounded-sm min-h-[36px] flex items-center">
+                                                            <span className="text-xs text-white font-mono">{formData.location || '—'}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <div className="space-y-1.5 md:col-span-2">
+                                                    <label className="text-[9px] font-mono text-muted uppercase tracking-wider flex items-center gap-1.5">
+                                                        <FileText size={10} /> Bio
+                                                    </label>
+                                                    {isEditing ? (
+                                                        <textarea
+                                                            value={formData.bio}
+                                                            onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                                                            className="w-full bg-black/20 border border-white/10 text-white font-mono text-xs p-2.5 outline-none focus:border-primary/50 rounded-sm min-h-[60px] resize-none"
+                                                            placeholder="Briefly describe your research focus..."
+                                                        />
+                                                    ) : (
+                                                        <div className="p-3 bg-white/5 border border-white/5 rounded-sm min-h-[60px]">
+                                                            <p className="text-xs text-white/80 font-mono whitespace-pre-wrap leading-relaxed">
+                                                                {formData.bio || 'No bio added yet.'}
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -279,49 +417,51 @@ export default function ProfilePage() {
                         </section>
                     </div>
 
-                    {/* Right Column: Subscription */}
+                    {/* Right Column: Subscription + Security */}
                     <div className="md:col-span-1">
-                        <section className="animate-in fade-in slide-in-from-bottom-4 fill-mode-backwards" style={{ animationDelay: '200ms' }}>
-                            <div className="flex items-center gap-3 mb-6 pb-2 border-b border-white/10">
-                                <CreditCard size={20} className="text-primary" />
-                                <h2 className="text-lg font-bold text-white uppercase tracking-wide font-mono">Plan</h2>
-                            </div>
-
-                            <div className="bg-gradient-to-b from-primary/10 to-black border border-primary/30 p-6 rounded-sm relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-20 h-20 bg-primary/20 blur-2xl rounded-full -mr-10 -mt-10" />
-
-                                <div className="relative z-10">
-                                    <h3 className="text-2xl font-bold text-white font-mono mb-1">PRO PLAN</h3>
-                                    <p className="text-xs text-primary font-mono uppercase tracking-wider mb-6">Active Subscription</p>
-
-                                    <ul className="space-y-3 mb-8">
-                                        {[
-                                            'Unlimited Projects',
-                                            'GPT-4 Access',
-                                            'Priority Support',
-                                            'API Access'
-                                        ].map((feature, i) => (
-                                            <li key={i} className="flex items-center gap-2 text-sm text-white/80 font-mono">
-                                                <CheckCircle2 size={14} className="text-primary" />
-                                                {feature}
-                                            </li>
-                                        ))}
-                                    </ul>
-
-                                    <Button className="w-full" variant="secondary">
-                                        MANAGE_SUBSCRIPTION
-                                    </Button>
+                        <div className="grid grid-cols-1 gap-6 lg:gap-8">
+                            <section className="animate-in fade-in slide-in-from-bottom-4 fill-mode-backwards" style={{ animationDelay: '200ms' }}>
+                                <div className="flex items-center gap-3 mb-6 pb-2 border-b border-white/10">
+                                    <CreditCard size={20} className="text-primary" />
+                                    <h2 className="text-lg font-bold text-white uppercase tracking-wide font-mono">Plan</h2>
                                 </div>
-                            </div>
-                        </section>
 
-                        <section className="mt-6 animate-in fade-in slide-in-from-bottom-4 fill-mode-backwards" style={{ animationDelay: '250ms' }}>
-                            <div className="flex items-center gap-3 mb-4 pb-2 border-b border-white/10">
-                                <User size={20} className="text-primary" />
-                                <h2 className="text-lg font-bold text-white uppercase tracking-wide font-mono">Security</h2>
-                            </div>
-                            <MfaSetup onComplete={refreshUser} />
-                        </section>
+                                <div className="bg-gradient-to-b from-primary/10 to-black border border-primary/30 p-6 rounded-sm relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-20 h-20 bg-primary/20 blur-2xl rounded-full -mr-10 -mt-10" />
+
+                                    <div className="relative z-10">
+                                        <h3 className="text-2xl font-bold text-white font-mono mb-1">PRO PLAN</h3>
+                                        <p className="text-xs text-primary font-mono uppercase tracking-wider mb-6">Active Subscription</p>
+
+                                        <ul className="space-y-3 mb-8">
+                                            {[
+                                                'Unlimited Projects',
+                                                'GPT-4 Access',
+                                                'Priority Support',
+                                                'API Access'
+                                            ].map((feature, i) => (
+                                                <li key={i} className="flex items-center gap-2 text-sm text-white/80 font-mono">
+                                                    <CheckCircle2 size={14} className="text-primary" />
+                                                    {feature}
+                                                </li>
+                                            ))}
+                                        </ul>
+
+                                        <Button className="w-full" variant="secondary">
+                                            MANAGE_SUBSCRIPTION
+                                        </Button>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section className="animate-in fade-in slide-in-from-bottom-4 fill-mode-backwards" style={{ animationDelay: '250ms' }}>
+                                <div className="flex items-center gap-3 mb-4 pb-2 border-b border-white/10">
+                                    <User size={20} className="text-primary" />
+                                    <h2 className="text-lg font-bold text-white uppercase tracking-wide font-mono">Security</h2>
+                                </div>
+                                <MfaSetup onComplete={refreshUser} />
+                            </section>
+                        </div>
                     </div>
                 </div>
             </div>

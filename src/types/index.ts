@@ -5,6 +5,10 @@ export type User = {
     avatarUrl?: string;
     preferences: {
         theme: 'light' | 'dark' | 'system';
+        title?: string;
+        organization?: string;
+        location?: string;
+        bio?: string;
     };
 };
 

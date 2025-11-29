@@ -195,3 +195,20 @@ a {
   scrollbar-width: thin;
   scrollbar-color: var(--border) var(--background);
 }
+
+@keyframes blink-digital {
+
+  0%,
+  49% {
+    opacity: 1;
+  }
+
+  50%,
+  100% {
+    opacity: 0.1;
+  }
+}
+
+.animate-blink-digital {
+  animation: blink-digital 2s infinite;
+}
