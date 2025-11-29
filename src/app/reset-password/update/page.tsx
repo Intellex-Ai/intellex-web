@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { supabase } from '@/lib/supabase';
-import { Lock } from 'lucide-react';
+import { Lock, Mail } from 'lucide-react';
 
 const SESSION_COOKIE = 'intellex_session';
 const setSessionCookie = (isLoggedIn: boolean) => {
@@ -43,6 +43,13 @@ function ResetPasswordContent() {
         const hash = window.location.hash.replace(/^#/, '');
         return new URLSearchParams(hash);
     }, []);
+
+    const emailParam =
+        searchParams?.get('email') ||
+        hashParams?.get('email') ||
+        (typeof window !== 'undefined'
+            ? new URLSearchParams(window.location.search).get('email') || null
+            : null);
 
     useEffect(() => {
         const bootstrapSession = async () => {
@@ -166,6 +173,34 @@ function ResetPasswordContent() {
         setChallengeId(data.id);
     };
 
+    const resendResetLink = async () => {
+        if (!emailParam) {
+            setError('Email missing from link. Request a new reset link from the login page.');
+            return;
+        }
+        setIsLoading(true);
+        setError(null);
+        setStatus(null);
+        try {
+            const siteUrl =
+                process.env.NEXT_PUBLIC_SITE_URL ||
+                (typeof window !== 'undefined' ? window.location.origin : 'https://intellex-web.vercel.app');
+            const redirectUrl = `${siteUrl}/reset-password/update`;
+            const { error: resetError } = await supabase.auth.resetPasswordForEmail(emailParam, {
+                redirectTo: redirectUrl,
+            });
+            if (resetError) {
+                throw resetError;
+            }
+            setStatus(`New reset link sent to ${emailParam}. Check your email.`);
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to send reset link.';
+            setError(message);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!ready) {
@@ -249,7 +284,22 @@ function ResetPasswordContent() {
                             </Button>
                         </>
                     )}
-                    {error && <p className="text-error text-xs font-mono">{error}</p>}
+                    {error && (
+                        <div className="space-y-2">
+                            <p className="text-error text-xs font-mono">{error}</p>
+                            {emailParam && (
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    className="w-full border border-white/10"
+                                    onClick={resendResetLink}
+                                    leftIcon={<Mail size={14} />}
+                                >
+                                    Resend reset link
+                                </Button>
+                            )}
+                        </div>
+                    )}
                     {status && <p className="text-success text-xs font-mono">{status}</p>}
                     <Button type="submit" className="w-full" isLoading={isLoading}>
                         Update Password
