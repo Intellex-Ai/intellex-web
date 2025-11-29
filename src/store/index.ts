@@ -98,7 +98,9 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                             const baseUrl =
                                 (typeof window !== 'undefined' ? window.location.origin : undefined) ||
                                 process.env.NEXT_PUBLIC_SITE_URL;
-                            const redirectTo = baseUrl ? `${baseUrl}/auth/callback` : undefined;
+                            const redirectTo = baseUrl
+                                ? `${baseUrl}/auth/callback?email=${encodeURIComponent(email)}`
+                                : undefined;
                             const { data, error } = await supabase.auth.signUp({
                                 email,
                                 password,

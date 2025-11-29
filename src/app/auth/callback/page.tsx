@@ -9,7 +9,7 @@ function CallbackContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const { refreshUser } = useStore();
-    const [status, setStatus] = useState<'pending' | 'success' | 'error'>('pending');
+    const [status, setStatus] = useState<'pending' | 'success' | 'error' | 'resending'>('pending');
     const [message, setMessage] = useState<string>('Verifying your email...');
 
     const hashParams = useMemo(() => {
@@ -17,6 +17,29 @@ function CallbackContent() {
         const hash = window.location.hash.replace(/^#/, '');
         return new URLSearchParams(hash);
     }, []);
+
+    const emailParam = searchParams?.get('email');
+
+    const handleResend = async () => {
+        if (!emailParam) {
+            setStatus('error');
+            setMessage('Cannot resend: email missing from link.');
+            return;
+        }
+        setStatus('resending');
+        setMessage('Resending confirmation email...');
+        const { error } = await supabase.auth.resend({
+            type: 'signup',
+            email: emailParam,
+        });
+        if (error) {
+            setStatus('error');
+            setMessage(error.message || 'Failed to resend confirmation email.');
+            return;
+        }
+        setStatus('pending');
+        setMessage('Verification email sent. Check your inbox.');
+    };
 
     useEffect(() => {
         const verify = async () => {
@@ -59,7 +82,7 @@ function CallbackContent() {
         };
 
         verify();
-    }, [refreshUser, router, searchParams]);
+    }, [emailParam, hashParams, refreshUser, router, searchParams]);
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-black px-4">
@@ -68,15 +91,27 @@ function CallbackContent() {
                 <h1 className="text-xl font-bold text-white font-mono tracking-tight">Email Confirmation</h1>
                 <p className={`text-sm ${status === 'error' ? 'text-error' : 'text-muted'}`}>{message}</p>
                 {status === 'pending' && <p className="text-xs text-muted font-mono">Processing...</p>}
+                {status === 'resending' && <p className="text-xs text-muted font-mono">Resending confirmation...</p>}
                 {status === 'success' && <p className="text-xs text-success font-mono">Success</p>}
                 {status === 'error' && (
-                    <button
-                        className="text-xs font-mono text-primary underline"
-                        onClick={() => router.replace('/login')}
-                        type="button"
-                    >
-                        Back to login
-                    </button>
+                    <div className="space-y-2">
+                        <button
+                            className="text-xs font-mono text-primary underline"
+                            onClick={() => router.replace('/login')}
+                            type="button"
+                        >
+                            Back to login
+                        </button>
+                        {emailParam && (
+                            <button
+                                className="text-xs font-mono text-primary underline"
+                                onClick={handleResend}
+                                type="button"
+                            >
+                                Resend confirmation to {emailParam}
+                            </button>
+                        )}
+                    </div>
                 )}
             </div>
         </div>
