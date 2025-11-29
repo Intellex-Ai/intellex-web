@@ -10,6 +10,11 @@ import { API_BASE_URL } from '@/services/api/client';
 import { MockResearchService } from '@/services/mock/research';
 
 const SESSION_COOKIE = 'intellex_session';
+const getSiteBaseUrl = () => {
+    if (typeof window !== 'undefined') return window.location.origin;
+    if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
+    return undefined;
+};
 const setSessionCookie = (isLoggedIn: boolean) => {
     if (typeof document === 'undefined') return;
     const siteDomain = process.env.NEXT_PUBLIC_SITE_URL
@@ -92,6 +97,18 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                         }
                     };
 
+                    const resendConfirmation = async () => {
+                        const baseUrl = getSiteBaseUrl();
+                        const redirectTo = baseUrl ? `${baseUrl}/auth/callback?email=${encodeURIComponent(email)}` : undefined;
+                        await supabase.auth.resend({
+                            type: 'signup',
+                            email,
+                            options: {
+                                emailRedirectTo: redirectTo,
+                            },
+                        });
+                    };
+
                     if (mode === 'signup') {
                         if (!name) {
                             throw new Error('Name is required for signup');
@@ -100,9 +117,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                         if (provisioned) {
                             await signInPassword();
                         } else {
-                            const baseUrl =
-                                (typeof window !== 'undefined' ? window.location.origin : undefined) ||
-                                process.env.NEXT_PUBLIC_SITE_URL;
+                            const baseUrl = getSiteBaseUrl();
                             const redirectTo = baseUrl
                                 ? `${baseUrl}/auth/callback?email=${encodeURIComponent(email)}`
                                 : undefined;
@@ -115,10 +130,15 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                                 },
                             });
                             if (error) {
+                                if (error.message?.toLowerCase().includes('already registered')) {
+                                    await resendConfirmation();
+                                    throw new Error('Email already registered. Verification link re-sent if not confirmed.');
+                                }
                                 throw error;
                             }
                             if (!data.session) {
-                                throw new Error('Please confirm your email to activate your account.');
+                                await resendConfirmation();
+                                throw new Error('Please confirm your email to activate your account. We just re-sent the link.');
                             }
                         }
                     } else {
@@ -146,7 +166,18 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                     setSessionCookie(false);
                     if (error instanceof Error) {
                         if (error.message?.toLowerCase().includes('email not confirmed')) {
-                            throw new Error('Please confirm your email (or enable dev autoconfirm) before signing in.');
+                            const baseUrl = getSiteBaseUrl();
+                            const redirectTo = baseUrl
+                                ? `${baseUrl}/auth/callback?email=${encodeURIComponent(email)}`
+                                : undefined;
+                            await supabase.auth.resend({
+                                type: 'signup',
+                                email,
+                                options: {
+                                    emailRedirectTo: redirectTo,
+                                },
+                            }).catch(() => {});
+                            throw new Error('Email not confirmed. We just re-sent a verification link.');
                         }
                         throw error;
                     }
