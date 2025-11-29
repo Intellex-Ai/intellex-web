@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { supabase } from '@/lib/supabase';
-import { Lock, Mail } from 'lucide-react';
+import { Lock } from 'lucide-react';
 
 const SESSION_COOKIE = 'intellex_session';
 const setSessionCookie = (isLoggedIn: boolean) => {
@@ -35,7 +35,6 @@ function ResetPasswordContent() {
     const [isLoading, setIsLoading] = useState(false);
     const [isVerifyingMfa, setIsVerifyingMfa] = useState(false);
     const [ready, setReady] = useState(false);
-    const [emailInput, setEmailInput] = useState('');
     const router = useRouter();
     const searchParams = useSearchParams();
 
@@ -45,29 +44,23 @@ function ResetPasswordContent() {
         return new URLSearchParams(hash);
     }, []);
 
-    const emailParam =
-        searchParams?.get('email') ||
-        hashParams?.get('email') ||
-        (typeof window !== 'undefined'
-            ? new URLSearchParams(window.location.search).get('email') || null
-            : null);
-    useEffect(() => {
-        if (emailParam) setEmailInput(emailParam);
-    }, [emailParam]);
-
     useEffect(() => {
         const bootstrapSession = async () => {
             try {
-                const errorParam = searchParams?.get('error') || hashParams?.get('error');
-                const errorDesc = searchParams?.get('error_description') || hashParams?.get('error_description');
+                const search = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+                const errorParam = searchParams?.get('error') || hashParams?.get('error') || search?.get('error');
+                const errorDesc =
+                    searchParams?.get('error_description') ||
+                    hashParams?.get('error_description') ||
+                    search?.get('error_description');
                 if (errorParam) {
                     throw new Error(errorDesc || errorParam);
                 }
 
                 // Try to hydrate session from hash (Supabase email link style) or PKCE code.
-                const accessToken = hashParams?.get('access_token');
-                const refreshToken = hashParams?.get('refresh_token');
-                const code = searchParams?.get('code');
+                const accessToken = hashParams?.get('access_token') || searchParams?.get('access_token') || search?.get('access_token');
+                const refreshToken = hashParams?.get('refresh_token') || searchParams?.get('refresh_token') || search?.get('refresh_token');
+                const code = searchParams?.get('code') || search?.get('code');
 
                 if (accessToken && refreshToken) {
                     const { data, error } = await supabase.auth.setSession({
@@ -89,8 +82,8 @@ function ResetPasswordContent() {
                 setReady(true);
             } catch (err) {
                 setReady(false);
-                setError(err instanceof Error ? err.message : 'Reset link is invalid or expired.');
-                setStatus('Link expired or invalid. Request a new reset link below.');
+                setError(err instanceof Error ? err.message : 'Reset link is invalid or expired. Please request a new link from the login page.');
+                setStatus(null);
             }
         };
 
@@ -178,39 +171,10 @@ function ResetPasswordContent() {
         setChallengeId(data.id);
     };
 
-    const resendResetLink = async () => {
-        const targetEmail = emailInput?.trim() || emailParam;
-        if (!targetEmail) {
-            setError('Enter your email to get a new reset link.');
-            return;
-        }
-        setIsLoading(true);
-        setError(null);
-        setStatus(null);
-        try {
-            const siteUrl =
-                process.env.NEXT_PUBLIC_SITE_URL ||
-                (typeof window !== 'undefined' ? window.location.origin : 'https://intellex-web.vercel.app');
-            const redirectUrl = `${siteUrl}/reset-password/update`;
-            const { error: resetError } = await supabase.auth.resetPasswordForEmail(targetEmail, {
-                redirectTo: redirectUrl,
-            });
-            if (resetError) {
-                throw resetError;
-            }
-            setStatus(`New reset link sent to ${targetEmail}. Check your email.`);
-        } catch (err) {
-            const message = err instanceof Error ? err.message : 'Failed to send reset link.';
-            setError(message);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!ready) {
-            setError('Session not ready. Please reopen the reset link from your email or request a new one below.');
+            setError('Session not ready. Please reopen the reset link from your email.');
             return;
         }
         if (password !== confirm) {
@@ -305,19 +269,9 @@ function ResetPasswordContent() {
                 ) : (
                     <div className="space-y-4">
                         <p className="text-xs font-mono text-error">{error || 'Link invalid or expired.'}</p>
-                        <Input
-                            label="Email"
-                            type="email"
-                            required
-                            value={emailInput}
-                            onChange={(e) => setEmailInput(e.target.value)}
-                            placeholder="you@example.com"
-                            leftIcon={<Mail size={16} />}
-                        />
-                        {status && <p className="text-success text-xs font-mono">{status}</p>}
-                        <Button type="button" className="w-full" isLoading={isLoading} onClick={resendResetLink}>
-                            Send new reset link
-                        </Button>
+                        <p className="text-xs font-mono text-muted">
+                            For security, reset links are single-use. Please return to the login screen and request a new reset email.
+                        </p>
                         <Button variant="ghost" className="w-full" onClick={() => router.push('/login')}>
                             Back to Login
                         </Button>
