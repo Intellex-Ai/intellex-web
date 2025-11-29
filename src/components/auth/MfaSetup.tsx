@@ -13,7 +13,6 @@ interface MfaSetupProps {
 export function MfaSetup({ onComplete }: MfaSetupProps) {
     const [totpUri, setTotpUri] = useState<string | null>(null);
     const [factorId, setFactorId] = useState<string | null>(null);
-    const [challengeId, setChallengeId] = useState<string | null>(null);
     const [code, setCode] = useState('');
     const [status, setStatus] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -45,18 +44,6 @@ export function MfaSetup({ onComplete }: MfaSetupProps) {
             const enrolledFactorId = data?.id ?? null;
             setFactorId(enrolledFactorId);
 
-            // Start a challenge for this factor so we have a challengeId to verify against.
-            if (enrolledFactorId) {
-                const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({
-                    factorId: enrolledFactorId,
-                });
-                if (challengeError) {
-                    setError(challengeError.message ?? 'Failed to start MFA challenge');
-                    return;
-                }
-                setChallengeId(challengeData?.id ?? null);
-            }
-
             const rawUri = data?.totp?.uri ?? null;
             if (rawUri) {
                 // Rebuild the TOTP URI with a stable issuer + user email label.
@@ -72,17 +59,12 @@ export function MfaSetup({ onComplete }: MfaSetupProps) {
             } else {
                 setTotpUri(null);
             }
-            setChallengeId(data?.id ?? null);
         };
         bootstrap();
     }, []);
 
     const verify = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!challengeId) {
-            setError('Missing challenge ID; try reloading the setup.');
-            return;
-        }
         if (!factorId) {
             setError('Missing factor ID; try reloading the setup.');
             return;
@@ -91,9 +73,21 @@ export function MfaSetup({ onComplete }: MfaSetupProps) {
         setError(null);
         setStatus(null);
         try {
+            // Always start a fresh challenge for the factor before verifying.
+            const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({
+                factorId,
+            });
+            if (challengeError) {
+                throw new Error(challengeError.message ?? 'Failed to start MFA challenge');
+            }
+            const freshChallengeId = challengeData?.id;
+            if (!freshChallengeId) {
+                throw new Error('Missing challenge ID from server; try again.');
+            }
+
             const { error: verifyError } = await supabase.auth.mfa.verify({
                 factorId,
-                challengeId,
+                challengeId: freshChallengeId,
                 code,
             });
             if (verifyError) {
