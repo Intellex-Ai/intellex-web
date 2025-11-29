@@ -3,23 +3,37 @@
 import { useEffect } from 'react';
 
 /**
- * Some Supabase recovery links may land on the site root with the recovery hash.
- * This client-side guard reroutes those to the reset password page, preserving the hash/search.
+ * Supabase recovery links sometimes drop users on the site root with tokens in the hash/query.
+ * This guard detects recovery/access tokens immediately (not just after paint) and hard-redirects
+ * to the reset password page, preserving tokens.
  */
 export function RecoveryRedirect() {
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
+    if (typeof window !== 'undefined') {
         const { hash, search, pathname } = window.location;
-        // Only act if we detect a recovery hash and we're not already on the reset page.
-        if (pathname.startsWith('/reset-password/update')) return;
         const hasRecovery =
             hash.includes('type=recovery') ||
             hash.includes('recovery') ||
-            search.includes('type=recovery');
-        if (!hasRecovery) return;
+            hash.includes('access_token') ||
+            search.includes('type=recovery') ||
+            search.includes('access_token');
+        if (hasRecovery && !pathname.startsWith('/reset-password/update')) {
+            window.location.replace(`/reset-password/update${search}${hash}`);
+            return null;
+        }
+    }
 
-        const target = `/reset-password/update${search}${hash}`;
-        window.location.replace(target);
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const { hash, search, pathname } = window.location;
+        const hasRecovery =
+            hash.includes('type=recovery') ||
+            hash.includes('recovery') ||
+            hash.includes('access_token') ||
+            search.includes('type=recovery') ||
+            search.includes('access_token');
+        if (hasRecovery && !pathname.startsWith('/reset-password/update')) {
+            window.location.replace(`/reset-password/update${search}${hash}`);
+        }
     }, []);
 
     return null;
