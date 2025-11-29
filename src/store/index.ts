@@ -95,15 +95,16 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                         if (provisioned) {
                             await signInPassword();
                         } else {
-                            const siteUrl =
-                                process.env.NEXT_PUBLIC_SITE_URL ||
-                                (typeof window !== 'undefined' ? window.location.origin : undefined);
+                            const baseUrl =
+                                (typeof window !== 'undefined' ? window.location.origin : undefined) ||
+                                process.env.NEXT_PUBLIC_SITE_URL;
+                            const redirectTo = baseUrl ? `${baseUrl}/auth/callback` : undefined;
                             const { data, error } = await supabase.auth.signUp({
                                 email,
                                 password,
                                 options: {
                                     data: { display_name: name },
-                                    emailRedirectTo: siteUrl ? `${siteUrl}/auth/callback` : undefined,
+                                    emailRedirectTo: redirectTo,
                                 },
                             });
                             if (error) {

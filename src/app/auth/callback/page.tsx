@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { useStore } from '@/store';
@@ -12,19 +12,40 @@ function CallbackContent() {
     const [status, setStatus] = useState<'pending' | 'success' | 'error'>('pending');
     const [message, setMessage] = useState<string>('Verifying your email...');
 
-    useEffect(() => {
-        const code = searchParams?.get('code');
-        if (!code) {
-            setStatus('error');
-            setMessage('Invalid or missing verification code.');
-            return;
-        }
+    const hashParams = useMemo(() => {
+        if (typeof window === 'undefined') return null;
+        const hash = window.location.hash.replace(/^#/, '');
+        return new URLSearchParams(hash);
+    }, []);
 
+    useEffect(() => {
         const verify = async () => {
             try {
-                const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-                if (error || !data.session) {
-                    throw error || new Error('No session returned.');
+                const errorParam = searchParams?.get('error') || hashParams?.get('error');
+                const errorDesc = searchParams?.get('error_description') || hashParams?.get('error_description');
+                if (errorParam) {
+                    throw new Error(errorDesc || errorParam);
+                }
+
+                const accessToken = hashParams?.get('access_token');
+                const refreshToken = hashParams?.get('refresh_token');
+                const code = searchParams?.get('code');
+
+                if (accessToken && refreshToken) {
+                    const { data, error } = await supabase.auth.setSession({
+                        access_token: accessToken,
+                        refresh_token: refreshToken,
+                    });
+                    if (error || !data.session) {
+                        throw error || new Error('No session returned.');
+                    }
+                } else if (code) {
+                    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+                    if (error || !data.session) {
+                        throw error || new Error('No session returned.');
+                    }
+                } else {
+                    throw new Error('Invalid or missing verification token.');
                 }
                 setStatus('success');
                 setMessage('Email verified. Redirecting to your dashboard...');
