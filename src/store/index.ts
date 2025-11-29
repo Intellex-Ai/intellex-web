@@ -7,7 +7,6 @@ import { ChatService } from '@/services/api/chat';
 import { ApiError } from '@/services/api/client';
 import { supabase } from '@/lib/supabase';
 import { API_BASE_URL } from '@/services/api/client';
-import { MockResearchService } from '@/services/mock/research';
 
 const SESSION_COOKIE = 'intellex_session';
 const getSiteBaseUrl = () => {
@@ -209,13 +208,8 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                     const projects = await ProjectService.list();
                     set({ projects });
                 } catch (error) {
-                    console.warn('Failed to reach API for projects, falling back to mock data', error);
-                    try {
-                        const projects = await MockResearchService.getProjects();
-                        set({ projects });
-                    } catch (mockError) {
-                        console.error('Mock fallback for projects also failed', mockError);
-                    }
+                    console.error('Failed to reach API for projects', error);
+                    set({ projects: [] });
                 } finally {
                     set({ isLoading: false });
                 }
@@ -239,22 +233,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                     return project;
                 } catch (error) {
                     console.error('Failed to create project', error);
-
-                    // Allow demo usage when API is offline.
-                    try {
-                        const project = await MockResearchService.createProject(title, goal);
-                        const plan = await MockResearchService.getPlan(project.id);
-                        set({
-                            projects: [project, ...get().projects.filter((p) => p.id !== project.id)],
-                            activeProject: project,
-                            activePlan: plan ?? null,
-                            messages: [],
-                        });
-                        return project;
-                    } catch (mockError) {
-                        console.warn('Mock fallback for project creation failed', mockError);
-                        return null;
-                    }
+                    return null;
                 } finally {
                     set({ isLoading: false });
                 }
@@ -270,20 +249,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                     ]);
                     set({ activeProject: project, messages, activePlan: plan });
                 } catch (error) {
-                    // Try mock fallback for local/demo mode when API is unreachable or missing data.
-                    try {
-                        const project = await MockResearchService.getProject(projectId);
-                        const plan = await MockResearchService.getPlan(projectId);
-                        if (project) {
-                            set({ activeProject: project, messages: [], activePlan: plan || null });
-                            return;
-                        }
-                    } catch (mockError) {
-                        console.warn('Mock fallback for project failed', mockError);
-                    }
-
                     if (error instanceof ApiError && error.status === 404) {
-                        // Remove stale project reference if it no longer exists.
                         set((state) => ({
                             projects: state.projects.filter((p) => p.id !== projectId),
                             activeProject: null,
@@ -292,6 +258,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                         }));
                         return;
                     }
+                    set({ activeProject: null, messages: [], activePlan: null });
                     console.error('Failed to load project', error);
                 } finally {
                     set({ isLoading: false });
