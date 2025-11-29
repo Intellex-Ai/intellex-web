@@ -2,8 +2,8 @@ import { User } from '@/types';
 
 const MOCK_USER: User = {
     id: 'user-1',
-    email: 'demo@intellex.ai',
-    name: 'Demo Researcher',
+    email: '',
+    name: '',
     avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix',
     preferences: {
         theme: 'system',

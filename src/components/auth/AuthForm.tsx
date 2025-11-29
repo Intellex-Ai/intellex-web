@@ -5,7 +5,8 @@ import { useStore } from '@/store';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Mail, Lock, Github } from 'lucide-react';
+import { Mail, Lock, Github, User as UserIcon } from 'lucide-react';
+import Link from 'next/link';
 
 
 interface AuthFormProps {
@@ -14,6 +15,7 @@ interface AuthFormProps {
 
 export default function AuthForm({ type }: AuthFormProps) {
     const [email, setEmail] = useState('');
+    const [name, setName] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -27,9 +29,19 @@ export default function AuthForm({ type }: AuthFormProps) {
         setError(null);
 
         try {
-            const userEmail = email.trim() || 'demo@intellex.ai';
-            const displayName = userEmail.includes('@') ? userEmail.split('@')[0] : 'Intellex User';
-            await login(userEmail, displayName || 'Intellex User');
+            const userEmail = email.trim();
+            const providedName = name.trim();
+            const safePassword = password.trim();
+
+            if (!userEmail || !safePassword) {
+                throw new Error('Email and password are required.');
+            }
+            if (type === 'signup' && !providedName) {
+                throw new Error('Please provide your name to continue.');
+            }
+
+            const displayName = providedName || undefined;
+            await login(userEmail, safePassword, displayName, type);
             router.push('/dashboard');
         } catch (err: unknown) {
             if (err instanceof Error) {
@@ -77,6 +89,17 @@ export default function AuthForm({ type }: AuthFormProps) {
                 )}
 
                 <div className="space-y-3">
+                    {type === 'signup' && (
+                        <Input
+                            type="text"
+                            label="Full name"
+                            placeholder="COMMANDER DATA"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            required={type === 'signup'}
+                            leftIcon={<UserIcon size={16} />}
+                        />
+                    )}
                     <Input
                         type="email"
                         label="Email address"
@@ -106,6 +129,14 @@ export default function AuthForm({ type }: AuthFormProps) {
                 >
                     {type === 'login' ? 'INITIATE_SESSION' : 'CREATE_IDENTITY'}
                 </Button>
+
+                {type === 'login' && (
+                    <div className="text-right">
+                        <Link href="/reset-password" className="text-xs font-mono text-primary hover:underline">
+                            Forgot password?
+                        </Link>
+                    </div>
+                )}
 
                 <div className="relative mt-4 pt-4 border-t border-white/10">
                     <div className="flex flex-col items-center gap-2">

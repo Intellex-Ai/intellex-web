@@ -1,5 +1,12 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Supabase setup
+
+1. Copy `.env.example` to `.env.local` and fill `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and (server routes) `SUPABASE_SERVICE_ROLE_KEY`.
+2. Optional (dev only): set `ENABLE_DEV_AUTH_AUTOCONFIRM=true` (server) and `NEXT_PUBLIC_ENABLE_DEV_AUTH_AUTOCONFIRM=true` (client) to allow the API route `/api/auth/dev-provision` to auto-confirm/create Supabase auth users using the service role. Keep this **off in prod**.
+2. A lightweight health endpoint is available at `/api/health` and will ping the `users` table.
+3. Basic Supabase-backed user APIs live under `/api/users` (GET list, POST create/upsert by email).
+
 ## Getting Started
 
 First, run the development server:

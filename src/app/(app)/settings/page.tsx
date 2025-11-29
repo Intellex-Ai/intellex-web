@@ -1,19 +1,30 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useStore } from '@/store';
-import { Bell, Shield, LogOut, Moon, Monitor, Key, Globe, Clock, Save } from 'lucide-react';
+import { Bell, Shield, LogOut, Moon, Monitor, Key, Globe, Clock, Save, MonitorSmartphone } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { TextScramble } from '@/components/ui/TextScramble';
 
+const timezones = [
+    { label: 'UTC', value: 'UTC' },
+    { label: 'Pacific Time (PT)', value: 'America/Los_Angeles' },
+    { label: 'Eastern Time (ET)', value: 'America/New_York' },
+    { label: 'London (GMT)', value: 'Europe/London' },
+    { label: 'India (IST)', value: 'Asia/Kolkata' },
+    { label: 'Singapore (SGT)', value: 'Asia/Singapore' },
+];
+
 export default function SettingsPage() {
-    const { logout } = useStore();
+    const { logout, user, timezone, setTimezone } = useStore();
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [apiKeys, setApiKeys] = useState({ openai: '', anthropic: '' });
+    const [deviceInfo, setDeviceInfo] = useState<{ ua: string; platform: string; current: boolean; lastSignIn?: string | null }[]>([]);
+    const [deviceError, setDeviceError] = useState<string | null>(null);
 
     const handleSignOut = async () => {
         await logout();
@@ -29,13 +40,48 @@ export default function SettingsPage() {
         }, 1000);
     };
 
+    const uaSummary = useMemo(() => {
+        if (typeof navigator === 'undefined') return { ua: 'Unknown', platform: 'Unknown device' };
+        const ua = navigator.userAgent;
+        const platform = navigator.platform || 'Unknown platform';
+        return { ua, platform };
+    }, []);
+
+    useEffect(() => {
+        const loadDevices = async () => {
+            if (!user?.email) return;
+            try {
+                const res = await fetch(`/api/profile/pending?email=${encodeURIComponent(user.email)}`);
+                let lastSignIn: string | null = null;
+                if (res.ok) {
+                    const data = await res.json();
+                    lastSignIn = data.user?.last_sign_in_at ?? null;
+                }
+                setDeviceInfo([
+                    {
+                        ua: uaSummary.ua,
+                        platform: uaSummary.platform,
+                        current: true,
+                        lastSignIn,
+                    },
+                ]);
+            } catch (err) {
+                setDeviceError(err instanceof Error ? err.message : 'Failed to load devices');
+            }
+        };
+        loadDevices();
+    }, [uaSummary, user?.email]);
+
     const sections = [
         {
             title: 'General',
             icon: Globe,
+            span: 1,
+            lgSpan: 1,
+            className: 'md:max-w-xl p-4 md:p-5',
             content: (
-                <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-5 max-w-xl">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <label className="text-xs font-mono text-muted uppercase tracking-wider">Language</label>
                             <div className="flex items-center justify-between p-3 bg-black/50 border border-white/10 rounded-sm">
@@ -45,9 +91,19 @@ export default function SettingsPage() {
                         </div>
                         <div className="space-y-2">
                             <label className="text-xs font-mono text-muted uppercase tracking-wider">Timezone</label>
-                            <div className="flex items-center justify-between p-3 bg-black/50 border border-white/10 rounded-sm">
-                                <span className="text-sm text-white font-mono">UTC-08:00 (Pacific Time)</span>
+                            <div className="flex items-center gap-3 p-3 bg-black/50 border border-white/10 rounded-sm min-w-0">
                                 <Clock size={14} className="text-muted" />
+                                <select
+                                    value={timezone}
+                                    onChange={(e) => setTimezone(e.target.value)}
+                                    className="flex-1 min-w-0 bg-transparent text-sm text-white font-mono border border-white/10 px-2 py-1 outline-none focus:border-primary"
+                                >
+                                    {timezones.map((tz) => (
+                                        <option key={tz.value} value={tz.value} className="bg-black text-white">
+                                            {tz.label}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
                     </div>
@@ -57,6 +113,8 @@ export default function SettingsPage() {
         {
             title: 'API_Keys',
             icon: Key,
+            span: 1,
+            lgSpan: 1,
             content: (
                 <div className="space-y-6">
                     <p className="text-xs text-muted font-mono mb-4">
@@ -100,6 +158,8 @@ export default function SettingsPage() {
         {
             title: 'Preferences',
             icon: Monitor,
+            span: 1,
+            lgSpan: 1,
             content: (
                 <div className="space-y-4">
                     <div className="flex items-center justify-between p-4 bg-black/50 border border-white/10 rounded-none">
@@ -134,8 +194,40 @@ export default function SettingsPage() {
         {
             title: 'Security',
             icon: Shield,
+            span: 2,
+            lgSpan: 3,
             content: (
-                <div className="space-y-4">
+                <div className="space-y-6">
+                    <div className="space-y-2">
+                        <h4 className="text-sm font-bold text-white font-mono uppercase">Devices</h4>
+                        <p className="text-xs text-muted font-mono">Track your current session and last sign-in.</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {deviceInfo.map((device, idx) => (
+                                <div key={idx} className="p-4 border border-white/10 bg-black/50 rounded-sm flex gap-3">
+                                    <div className="w-10 h-10 bg-primary/10 text-primary flex items-center justify-center rounded-sm">
+                                        <MonitorSmartphone size={18} />
+                                    </div>
+                                    <div className="space-y-1 min-w-0">
+                                        <p className="text-sm text-white font-mono truncate">{device.platform}</p>
+                                        <p className="text-xs text-muted font-mono truncate">{device.ua}</p>
+                                        {device.lastSignIn && (
+                                            <p className="text-xs text-muted font-mono">Last sign-in: {device.lastSignIn}</p>
+                                        )}
+                                        {device.current && (
+                                            <span className="text-[10px] font-mono uppercase text-primary bg-primary/10 px-2 py-1 inline-block">
+                                                Current Session
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                            {deviceInfo.length === 0 && (
+                                <div className="text-xs text-muted font-mono">No device info available.</div>
+                            )}
+                            {deviceError && <div className="text-xs text-error font-mono">{deviceError}</div>}
+                        </div>
+                    </div>
+
                     <div className="p-4 border border-error/20 bg-error/5 rounded-none">
                         <h4 className="text-sm font-bold text-error mb-2 font-mono uppercase">Danger Zone</h4>
                         <p className="text-xs text-muted font-mono mb-4">
@@ -156,11 +248,11 @@ export default function SettingsPage() {
     ];
 
     return (
-        <div className="min-h-screen bg-black animate-in fade-in duration-700 max-w-4xl relative overflow-hidden">
+        <div className="min-h-screen bg-black animate-in fade-in duration-700 relative overflow-hidden">
             {/* Static Cyber Grid Background */}
             <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[length:50px_50px] [mask-image:radial-gradient(circle_at_center,black_40%,transparent_100%)] pointer-events-none" />
 
-            <div className="relative z-10 p-2 md:p-8">
+            <div className="relative z-10 p-2 md:p-8 w-full max-w-none">
                 {/* Header */}
                 <header className="mb-8 md:mb-12">
                     <h1 className="text-2xl md:text-4xl font-mono font-bold mb-2 tracking-tighter text-white uppercase">
@@ -171,24 +263,23 @@ export default function SettingsPage() {
                     </p>
                 </header>
 
-                <div className="space-y-8 md:space-y-12 pb-20">
-                    {sections.map((section, index) => (
+                <div className="grid gap-6 md:gap-8 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 pb-20">
+                    {sections.map((section) => (
                         <section
-                            key={index}
-                            className="animate-in fade-in slide-in-from-bottom-4 fill-mode-backwards"
-                            style={{ animationDelay: `${index * 100}ms` }}
+                            key={section.title}
+                            className={`border border-white/10 bg-black/40 p-5 md:p-6 rounded-sm ${section.span === 2 ? 'md:col-span-2' : ''} ${section.span === 3 ? 'md:col-span-3' : ''} ${section.lgSpan === 2 ? 'lg:col-span-2' : ''} ${section.lgSpan === 3 ? 'lg:col-span-3' : ''} ${section.className ?? ''}`}
                         >
-                            <div className="flex items-center gap-3 mb-4 md:mb-6 pb-2 border-b border-white/10">
-                                <section.icon size={20} className="text-primary" />
-                                <h2 className="text-base md:text-lg font-bold text-white uppercase tracking-wide font-mono">{section.title}</h2>
+                            <div className="flex items-center gap-3 mb-4">
+                                <section.icon size={16} className="text-primary" />
+                                <h2 className="text-sm md:text-base font-bold text-white font-mono uppercase tracking-wider">
+                                    {section.title}
+                                </h2>
                             </div>
-                            <div className="pl-0 md:pl-8">
-                                {section.content}
-                            </div>
+                            {section.content}
                         </section>
                     ))}
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

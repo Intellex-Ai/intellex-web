@@ -1,4 +1,5 @@
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
+// Default to relative /api so Next.js rewrites can forward to the configured backend.
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || '/api').replace(/\/$/, '');
 
 export class ApiError extends Error {
     status: number;
@@ -39,13 +40,30 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
         }
     }
 
-    const response = await fetch(url, init);
+    let response: Response;
+    try {
+        response = await fetch(url, init);
+    } catch (networkError) {
+        throw new ApiError('Unable to reach API. Is the backend running and the base URL correct?', 0, networkError);
+    }
+
     const contentType = response.headers.get('content-type') || '';
     const isJson = contentType.includes('application/json');
-    const data = isJson ? await response.json() : await response.text();
+    let data: unknown = null;
+
+    try {
+        data = isJson ? await response.json() : await response.text();
+    } catch {
+        // Fall through with null data if body is empty or unparsable.
+    }
 
     if (!response.ok) {
-        const message = (data && (data.detail || data.message)) || 'Request failed';
+        const message =
+            (typeof data === 'string' && data.trim().length > 0 && data) ||
+            (data && (data as { detail?: string; message?: string }).detail) ||
+            (data && (data as { detail?: string; message?: string }).message) ||
+            response.statusText ||
+            'Request failed';
         throw new ApiError(message, response.status, data);
     }
 

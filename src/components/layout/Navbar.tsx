@@ -1,16 +1,21 @@
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { Button } from '@/components/ui/Button';
 import { useStore } from '@/store';
+import { supabase } from '@/lib/supabase';
+import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 
 export default function Navbar() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const { user, logout } = useStore();
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const { user, logout, refreshUser } = useStore();
+    const router = useRouter();
 
     const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
@@ -35,6 +40,25 @@ export default function Navbar() {
         }
     };
 
+    useEffect(() => {
+        // Hydrate user on initial load for marketing pages.
+        refreshUser();
+        const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+            if (event === 'SIGNED_OUT') {
+                logout();
+            }
+            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                refreshUser();
+            }
+            if (event === 'TOKEN_EXPIRED') {
+                logout();
+            }
+        });
+        return () => {
+            sub?.subscription.unsubscribe();
+        };
+    }, [logout, refreshUser]);
+
     return (
         <nav className="fixed top-0 left-0 right-0 z-50 h-[80px] flex items-center border-b border-white/10 bg-black/80 backdrop-blur-md supports-[backdrop-filter]:bg-black/60">
             <div className="w-full m-0 px-4 lg:px-12 flex items-center justify-between h-full max-w-[1400px] mx-auto">
@@ -56,14 +80,52 @@ export default function Navbar() {
                     ))}
 
                     {user ? (
-                        <>
-                            <Link href="/dashboard" className="font-mono text-sm font-bold text-muted-foreground hover:text-white transition-colors uppercase tracking-widest">
-                                DASHBOARD
-                            </Link>
-                            <div className="pl-4 border-l border-white/10">
-                                <Button variant="secondary" size="sm" onClick={() => logout()}>LOGOUT</Button>
-                            </div>
-                        </>
+                        <div className="relative">
+                            <button
+                                className="flex items-center gap-3 px-3 py-2 border border-white/10 bg-white/5 hover:bg-white/10 transition rounded-full"
+                                onClick={() => setIsDropdownOpen((v) => !v)}
+                            >
+                                <div className="w-8 h-8 rounded-full overflow-hidden bg-white/10 flex items-center justify-center">
+                                    {user.avatarUrl ? (
+                                        <Image src={user.avatarUrl} alt="avatar" width={32} height={32} className="object-cover" />
+                                    ) : (
+                                        <User size={16} />
+                                    )}
+                                </div>
+                                <span className="font-mono text-sm uppercase tracking-wide hidden xl:inline">
+                                    {user.name || user.email}
+                                </span>
+                            </button>
+                            {isDropdownOpen && (
+                                <div className="absolute right-0 mt-2 w-48 bg-black border border-white/10 shadow-lg py-2 z-50">
+                                    {[
+                                        { label: 'Profile', href: '/profile' },
+                                        { label: 'Projects', href: '/projects' },
+                                        { label: 'Settings', href: '/settings' },
+                                    ].map((item) => (
+                                        <button
+                                            key={item.href}
+                                            onClick={() => {
+                                                setIsDropdownOpen(false);
+                                                router.push(item.href);
+                                            }}
+                                            className="w-full text-left px-4 py-2 text-sm font-mono text-white hover:bg-white/10"
+                                        >
+                                            {item.label}
+                                        </button>
+                                    ))}
+                                    <button
+                                        onClick={() => {
+                                            setIsDropdownOpen(false);
+                                            logout();
+                                        }}
+                                        className="w-full text-left px-4 py-2 text-sm font-mono text-error hover:bg-error/10"
+                                    >
+                                        Logout
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     ) : (
                         <>
                             <Link href="/login" className="font-mono text-sm font-bold text-muted-foreground hover:text-white transition-colors uppercase tracking-widest">

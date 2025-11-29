@@ -9,6 +9,8 @@ type AuthOnlyClient = {
         getSession: () => Promise<{ data: { session: { access_token: string } | null }; error: unknown }>;
         getUser: () => Promise<{ data: { user: { id: string } | null }; error: unknown }>;
         signOut: () => Promise<{ error: unknown }>;
+        signInWithPassword: (params: { email: string; password: string }) => Promise<{ data: { user: unknown } | null; error: unknown }>;
+        signUp: (params: { email: string; password: string; options?: unknown }) => Promise<{ data: { user: unknown; session: unknown } | null; error: unknown }>;
     };
 };
 
@@ -25,6 +27,8 @@ const createSupabaseClient = (): AuthOnlyClient => {
             getSession: async () => ({ data: { session: null }, error: null }),
             getUser: async () => ({ data: { user: null }, error: null }),
             signOut: async () => ({ error: null }),
+            signInWithPassword: async () => ({ data: { user: null }, error: new Error('Supabase not configured') }),
+            signUp: async () => ({ data: { user: null, session: null }, error: new Error('Supabase not configured') }),
         },
     } as AuthOnlyClient;
 };

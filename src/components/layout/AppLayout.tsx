@@ -2,7 +2,7 @@
 
 import { useStore } from '@/store';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -19,6 +19,9 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import clsx from 'clsx';
+import { supabase } from '@/lib/supabase';
+import Image from 'next/image';
+import { DigitalClock } from '@/components/ui/DigitalClock';
 
 interface AppLayoutProps {
     children: React.ReactNode;
@@ -35,12 +38,46 @@ export default function AppLayout({ children }: AppLayoutProps) {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const pathname = usePathname();
     const router = useRouter();
-    const { logout } = useStore();
+    const { logout, user, refreshUser, clearSession, timezone } = useStore();
+    const [isSigningOut, setIsSigningOut] = useState(false);
 
     const handleSignOut = async () => {
-        await logout();
-        router.push('/');
+        if (isSigningOut) return;
+        setIsSigningOut(true);
+        try {
+            await logout();
+            clearSession();
+            router.push('/');
+        } finally {
+            setIsSigningOut(false);
+        }
     };
+
+    useEffect(() => {
+        refreshUser();
+    }, [refreshUser]);
+
+    useEffect(() => {
+        const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+            if (event === 'SIGNED_OUT') {
+                clearSession();
+                router.push('/');
+            }
+            if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
+                refreshUser();
+            }
+            if (event === 'TOKEN_EXPIRED') {
+                clearSession();
+                router.push('/');
+            }
+        });
+        return () => {
+            sub?.subscription.unsubscribe();
+        };
+    }, [clearSession, refreshUser, router]);
+
+    const displayName = user?.name || user?.email || '';
+    const displayEmail = user?.email || '';
 
     return (
         <div className="flex min-h-screen bg-black text-foreground font-sans selection:bg-primary selection:text-black">
@@ -140,24 +177,32 @@ export default function AppLayout({ children }: AppLayoutProps) {
                     )}>
                         <div className="w-10 h-10 rounded-full bg-surface-200 border border-white/10 flex items-center justify-center text-primary shrink-0 relative group cursor-pointer overflow-hidden">
                             <div className="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                            <User size={18} />
+                            {user?.avatarUrl ? (
+                                <Image src={user.avatarUrl} alt="avatar" fill className="object-cover" />
+                            ) : (
+                                <User size={18} />
+                            )}
                         </div>
 
                         <div className={clsx(
                             "flex flex-col overflow-hidden transition-all duration-300",
                             !isSidebarOpen && "md:hidden"
                         )}>
-                            <span className="font-bold text-sm text-white truncate">Researcher</span>
-                            <span className="text-xs text-muted-foreground truncate">user@intellex.ai</span>
+                            <span className="font-bold text-sm text-white truncate">{displayName}</span>
+                            <span className="text-xs text-muted-foreground truncate">{displayEmail}</span>
                         </div>
                     </Link>
 
                     <button
                         onClick={handleSignOut}
                         className={clsx(
-                            "flex items-center gap-3 w-full px-4 py-2 text-xs font-mono uppercase tracking-wider text-muted-foreground hover:text-error hover:bg-error/10 transition-all duration-200 rounded-sm group",
+                            "group flex items-center gap-3 w-full px-4 py-2 text-xs font-mono uppercase tracking-wider",
+                            "border border-white/10 text-white bg-white/5 rounded-sm shadow-[0_0_0_0_rgba(255,77,0,0)]",
+                            "hover:bg-error/15 hover:border-error/60 hover:text-error hover:shadow-[0_8px_30px_-12px_rgba(255,77,0,0.5)]",
+                            "active:scale-[0.99] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed",
                             !isSidebarOpen && "md:justify-center md:px-0"
                         )}
+                        disabled={isSigningOut}
                         title="Sign Out"
                     >
                         <LogOut size={18} className="shrink-0 group-hover:text-error transition-colors" />
@@ -177,9 +222,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 // Adjust margin based on sidebar state
                 isSidebarOpen ? "md:ml-[280px]" : "md:ml-[80px]"
             )}>
-                {/* Desktop Top Bar (Optional - can be removed if not needed, or used for breadcrumbs/actions) */}
-                <div className="hidden md:flex h-[80px] items-center justify-end px-8 sticky top-0 z-30 pointer-events-none">
-                    {/* Add global actions here if needed */}
+                {/* Desktop Top Bar */}
+                <div className="hidden md:flex h-[80px] items-end justify-end px-8 pb-2 pointer-events-none relative overflow-visible">
+                    <DigitalClock
+                        scale="xs"
+                        timeZone={timezone}
+                        className="absolute right-20 bottom-[-100px] origin-top-right scale-[0.45] z-40 filter drop-shadow-[0_0_14px_rgba(255,77,0,0.9)] brightness-110"
+                    />
                 </div>
 
                 <div className="flex-1 p-6 md:p-10 pt-[80px] md:pt-6 overflow-y-auto">

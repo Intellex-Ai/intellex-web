@@ -26,13 +26,17 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         async function loadWorkspaces() {
             const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
+            if (!user) {
+                setWorkspaces([]);
+                setWorkspaceId(null);
+                setLoading(false);
+                return;
+            }
 
-            // In a real app, you'd fetch this from your backend or Supabase table
-            // For now, we'll mock a default workspace for the user
+            // Placeholder workspace derived from Supabase auth identity.
             const defaultWorkspace = {
-                id: 'default-workspace', // This should be a real UUID in production
-                name: 'My Workspace',
+                id: user.id,
+                name: user.email ?? 'My Workspace',
                 role: 'owner'
             };
 

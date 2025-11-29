@@ -1,36 +1,129 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useStore } from '@/store';
 import { User, Mail, CreditCard, BarChart3, Edit2, Save, CheckCircle2 } from 'lucide-react';
 import { TextScramble } from '@/components/ui/TextScramble';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { MfaSetup } from '@/components/auth/MfaSetup';
 
 export default function ProfilePage() {
-    const { user } = useStore();
+    const { user, refreshUser } = useStore();
     const [isEditing, setIsEditing] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [avatarUploading, setAvatarUploading] = useState(false);
+    const [profileStatus, setProfileStatus] = useState<string | null>(null);
+    const [profileError, setProfileError] = useState<string | null>(null);
+    const [pendingInfo, setPendingInfo] = useState<{ emailConfirmed?: boolean; lastSignIn?: string | null } | null>(null);
     const [formData, setFormData] = useState({
-        name: user?.name || 'Researcher',
-        email: user?.email || 'user@intellex.ai',
+        name: user?.name || '',
+        email: user?.email || '',
+        avatarUrl: user?.avatarUrl || '',
     });
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-    const handleSave = () => {
+    useEffect(() => {
+        refreshUser();
+    }, [refreshUser]);
+
+    // Keep local form data in sync when the persisted user hydrates or updates.
+    useEffect(() => {
+        if (user) {
+            setFormData({
+                name: user.name || '',
+                email: user.email || '',
+                avatarUrl: user.avatarUrl || '',
+            });
+        }
+    }, [user]);
+
+    const handleSave = async () => {
         setIsLoading(true);
-        // Simulate save
-        setTimeout(() => {
-            setIsLoading(false);
+        setProfileError(null);
+        setProfileStatus(null);
+        try {
+            if (!formData.name.trim()) {
+                throw new Error('Name is required');
+            }
+
+            const res = await fetch('/api/profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: formData.email.trim().toLowerCase(),
+                    name: formData.name.trim(),
+                    avatarUrl: formData.avatarUrl || undefined,
+                }),
+            });
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.error || 'Failed to update profile');
+            }
+
+            setProfileStatus('Profile updated. If you changed email, check your inbox to confirm.');
             setIsEditing(false);
-        }, 1000);
+            await refreshUser();
+            setIsEditing(false);
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to update profile';
+            setProfileError(message);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const loadPending = async () => {
+        if (!formData.email) return;
+        try {
+            const res = await fetch(`/api/profile/pending?email=${encodeURIComponent(formData.email)}`);
+            if (!res.ok) return;
+            const data = await res.json();
+            setPendingInfo({
+                emailConfirmed: !!data.user?.email_confirmed,
+                lastSignIn: data.user?.last_sign_in_at ?? null,
+            });
+        } catch {
+            // non-blocking
+        }
+    };
+
+    useEffect(() => {
+        loadPending();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [formData.email]);
+
+    const handleAvatarUpload = async (file: File) => {
+        setAvatarUploading(true);
+        setProfileError(null);
+        setProfileStatus(null);
+        try {
+            const form = new FormData();
+            form.append('email', formData.email);
+            form.append('file', file);
+            const res = await fetch('/api/profile/avatar', { method: 'POST', body: form });
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.error || 'Failed to upload avatar');
+            }
+            const data = await res.json();
+            setFormData((prev) => ({ ...prev, avatarUrl: data.avatarUrl }));
+            setProfileStatus('Avatar updated');
+            await refreshUser();
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to upload avatar';
+            setProfileError(message);
+        } finally {
+            setAvatarUploading(false);
+        }
     };
 
     return (
-        <div className="min-h-screen bg-black animate-in fade-in duration-700 max-w-4xl relative overflow-hidden">
+        <div className="min-h-screen bg-black animate-in fade-in duration-700 relative overflow-hidden">
             {/* Static Cyber Grid Background */}
             <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[length:50px_50px] [mask-image:radial-gradient(circle_at_center,black_40%,transparent_100%)] pointer-events-none" />
 
-            <div className="relative z-10 p-2 md:p-8">
+            <div className="relative z-10 p-4 md:p-8 max-w-[1100px] mx-auto lg:mx-0">
                 {/* Header */}
                 <header className="mb-8 md:mb-12">
                     <h1 className="text-2xl md:text-4xl font-mono font-bold mb-2 tracking-tighter text-white uppercase">
@@ -41,16 +134,16 @@ export default function ProfilePage() {
                     </p>
                 </header>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pb-20">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 pb-16">
                     {/* Left Column: Identity */}
-                    <div className="md:col-span-2 space-y-8">
+                    <div className="lg:col-span-2 space-y-6">
                         <section className="animate-in fade-in slide-in-from-bottom-4 fill-mode-backwards" style={{ animationDelay: '0ms' }}>
-                            <div className="flex items-center gap-3 mb-6 pb-2 border-b border-white/10">
+                            <div className="flex items-center gap-3 mb-4 pb-2 border-b border-white/10">
                                 <User size={20} className="text-primary" />
                                 <h2 className="text-lg font-bold text-white uppercase tracking-wide font-mono">Identity</h2>
                             </div>
 
-                            <div className="bg-white/5 border border-white/10 p-6 rounded-sm relative group overflow-hidden">
+                            <div className="bg-white/5 border border-white/10 p-6 rounded-lg relative group overflow-hidden">
                                 <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                                     {!isEditing && (
                                         <button
@@ -62,14 +155,39 @@ export default function ProfilePage() {
                                     )}
                                 </div>
 
-                                <div className="flex flex-col md:flex-row gap-8 items-start">
-                                    <div className="flex-shrink-0">
+                                <div className="flex flex-col md:flex-row gap-6 items-start">
+                                    <div className="flex-shrink-0 relative">
                                         <div className="w-24 h-24 rounded-full bg-black border border-white/10 flex items-center justify-center text-primary relative overflow-hidden shadow-[0_0_30px_-10px_rgba(255,77,0,0.3)]">
-                                            <User size={48} />
+                                            {formData.avatarUrl ? (
+                                                // eslint-disable-next-line @next/next/no-img-element
+                                                <img src={formData.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <User size={48} />
+                                            )}
+                                            {isEditing && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                    className="absolute inset-0 bg-black/60 text-xs text-white font-mono uppercase opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                                                >
+                                                    Change
+                                                </button>
+                                            )}
+                                            <input
+                                                ref={fileInputRef}
+                                                type="file"
+                                                accept="image/*"
+                                                className="hidden"
+                                                onChange={(e) => {
+                                                    const f = e.target.files?.[0];
+                                                    if (f) handleAvatarUpload(f);
+                                                }}
+                                            />
                                         </div>
+                                        {avatarUploading && <p className="text-xs text-muted font-mono mt-2">Uploading...</p>}
                                     </div>
 
-                                    <div className="flex-1 w-full space-y-6">
+                                    <div className="flex-1 min-w-0 space-y-6">
                                         <div className="space-y-2">
                                             <label className="text-xs font-mono text-muted uppercase tracking-wider flex items-center gap-2">
                                                 <User size={12} /> Display Name
@@ -89,19 +207,23 @@ export default function ProfilePage() {
                                             <label className="text-xs font-mono text-muted uppercase tracking-wider flex items-center gap-2">
                                                 <Mail size={12} /> Email Address
                                             </label>
-                                            {isEditing ? (
+                                            <div className="space-y-2">
                                                 <Input
                                                     value={formData.email}
                                                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                                     className="font-mono"
                                                 />
-                                            ) : (
-                                                <p className="text-sm text-white font-mono">{formData.email}</p>
-                                            )}
+                                                {pendingInfo && (
+                                                    <div className="text-xs text-muted font-mono flex flex-wrap items-center gap-2">
+                                                        <span>Email {pendingInfo.emailConfirmed ? 'confirmed' : 'pending confirmation'}</span>
+                                                        {pendingInfo.lastSignIn && <span>• Last sign-in: {pendingInfo.lastSignIn}</span>}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
 
                                         {isEditing && (
-                                            <div className="flex gap-4 pt-2">
+                                            <div className="flex flex-wrap gap-3 pt-2 items-center">
                                                 <Button
                                                     size="sm"
                                                     onClick={handleSave}
@@ -117,6 +239,8 @@ export default function ProfilePage() {
                                                 >
                                                     CANCEL
                                                 </Button>
+                                                {profileStatus && <span className="text-xs text-primary font-mono">{profileStatus}</span>}
+                                                {profileError && <span className="text-xs text-error font-mono">{profileError}</span>}
                                             </div>
                                         )}
                                     </div>
@@ -189,6 +313,14 @@ export default function ProfilePage() {
                                     </Button>
                                 </div>
                             </div>
+                        </section>
+
+                        <section className="mt-6 animate-in fade-in slide-in-from-bottom-4 fill-mode-backwards" style={{ animationDelay: '250ms' }}>
+                            <div className="flex items-center gap-3 mb-4 pb-2 border-b border-white/10">
+                                <User size={20} className="text-primary" />
+                                <h2 className="text-lg font-bold text-white uppercase tracking-wide font-mono">Security</h2>
+                            </div>
+                            <MfaSetup onComplete={refreshUser} />
                         </section>
                     </div>
                 </div>
