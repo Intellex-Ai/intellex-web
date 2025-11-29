@@ -1,31 +1,177 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { supabase } from '@/lib/supabase';
 import { Lock } from 'lucide-react';
 
-export default function ResetPasswordUpdate() {
+const SESSION_COOKIE = 'intellex_session';
+const setSessionCookie = (isLoggedIn: boolean) => {
+    if (typeof document === 'undefined') return;
+    const siteDomain = process.env.NEXT_PUBLIC_SITE_URL
+        ? new URL(process.env.NEXT_PUBLIC_SITE_URL).hostname
+        : undefined;
+    const domainPart = siteDomain ? `; Domain=${siteDomain}` : '';
+    const securePart = typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : '';
+    if (isLoggedIn) {
+        document.cookie = `${SESSION_COOKIE}=1; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax${domainPart}${securePart}`;
+    } else {
+        document.cookie = `${SESSION_COOKIE}=; path=/; max-age=0; SameSite=Lax${domainPart}${securePart}`;
+    }
+};
+
+function ResetPasswordContent() {
     const [password, setPassword] = useState('');
     const [confirm, setConfirm] = useState('');
+    const [mfaCode, setMfaCode] = useState('');
+    const [mfaRequired, setMfaRequired] = useState(false);
+    const [mfaVerified, setMfaVerified] = useState(false);
+    const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
+    const [challengeId, setChallengeId] = useState<string | null>(null);
     const [status, setStatus] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [isVerifyingMfa, setIsVerifyingMfa] = useState(false);
+    const [ready, setReady] = useState(false);
     const router = useRouter();
+    const searchParams = useSearchParams();
+
+    const hashParams = useMemo(() => {
+        if (typeof window === 'undefined') return null;
+        const hash = window.location.hash.replace(/^#/, '');
+        return new URLSearchParams(hash);
+    }, []);
 
     useEffect(() => {
-        // Supabase sets the session from the recovery link; this page simply updates the password.
-        supabase.auth.getSession().then(({ data }) => {
-            if (!data.session) {
-                setError('Reset link is invalid or expired.');
+        const bootstrapSession = async () => {
+            try {
+                const errorParam = searchParams?.get('error') || hashParams?.get('error');
+                const errorDesc = searchParams?.get('error_description') || hashParams?.get('error_description');
+                if (errorParam) {
+                    throw new Error(errorDesc || errorParam);
+                }
+
+                // Try to hydrate session from hash (Supabase email link style) or PKCE code.
+                const accessToken = hashParams?.get('access_token');
+                const refreshToken = hashParams?.get('refresh_token');
+                const code = searchParams?.get('code');
+
+                if (accessToken && refreshToken) {
+                    const { data, error } = await supabase.auth.setSession({
+                        access_token: accessToken,
+                        refresh_token: refreshToken,
+                    });
+                    if (error || !data.session) throw error || new Error('No session returned.');
+                } else if (code) {
+                    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+                    if (error || !data.session) throw error || new Error('No session returned.');
+                } else {
+                    const { data } = await supabase.auth.getSession();
+                    if (!data.session) {
+                        throw new Error('Reset link is invalid or expired.');
+                    }
+                }
+
+                setSessionCookie(true);
+                setReady(true);
+            } catch (err) {
+                setReady(false);
+                setError(err instanceof Error ? err.message : 'Reset link is invalid or expired.');
             }
-        });
-    }, []);
+        };
+
+        bootstrapSession();
+    }, [hashParams, searchParams]);
+
+    useEffect(() => {
+        const prepareMfaChallenge = async () => {
+            try {
+                const { data, error } = await supabase.auth.mfa.listFactors();
+                if (error) {
+                    // If MFA APIs fail, allow password reset rather than blocking entirely.
+                    console.warn('MFA listFactors error', error);
+                    setMfaRequired(false);
+                    return;
+                }
+                const verified = (data?.totp || []).find((f) => f.status === 'verified');
+                if (!verified) {
+                    setMfaRequired(false);
+                    return;
+                }
+                setMfaRequired(true);
+                setMfaVerified(false);
+                setMfaFactorId(verified.id);
+                const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({
+                    factorId: verified.id,
+                });
+                if (challengeError || !challengeData?.id) {
+                    throw new Error(challengeError?.message || 'Failed to start MFA challenge.');
+                }
+                setChallengeId(challengeData.id);
+            } catch (err) {
+                console.warn('MFA challenge prep failed', err);
+                setMfaRequired(false);
+            }
+        };
+        if (ready) {
+            prepareMfaChallenge();
+        }
+    }, [ready]);
+
+    const verifyMfaCode = async () => {
+        if (!mfaRequired) return true;
+        if (mfaVerified) return true;
+        if (!mfaFactorId || !challengeId) {
+            setError('MFA challenge missing. Refresh and try again.');
+            return false;
+        }
+        if (!mfaCode.trim()) {
+            setError('Enter your 6-digit MFA code to continue.');
+            return false;
+        }
+        setIsVerifyingMfa(true);
+        setError(null);
+        try {
+            const { error: verifyError } = await supabase.auth.mfa.verify({
+                factorId: mfaFactorId,
+                challengeId,
+                code: mfaCode.trim(),
+            });
+            if (verifyError) {
+                throw verifyError;
+            }
+            setMfaVerified(true);
+            return true;
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to verify MFA code.');
+            return false;
+        } finally {
+            setIsVerifyingMfa(false);
+        }
+    };
+
+    const restartChallenge = async () => {
+        if (!mfaFactorId) return;
+        setStatus(null);
+        setError(null);
+        setMfaVerified(false);
+        setMfaCode('');
+        const { data, error } = await supabase.auth.mfa.challenge({ factorId: mfaFactorId });
+        if (error || !data?.id) {
+            setError(error?.message || 'Failed to refresh MFA challenge. Reload the page and try again.');
+            return;
+        }
+        setChallengeId(data.id);
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!ready) {
+            setError('Session not ready. Please reopen the reset link from your email.');
+            return;
+        }
         if (password !== confirm) {
             setError('Passwords do not match.');
             return;
@@ -34,11 +180,17 @@ export default function ResetPasswordUpdate() {
         setError(null);
         setStatus(null);
         try {
+            const mfaOk = await verifyMfaCode();
+            if (!mfaOk) {
+                setIsLoading(false);
+                return;
+            }
             const { error: updateError } = await supabase.auth.updateUser({ password });
             if (updateError) {
                 throw updateError;
             }
             setStatus('Password updated. Redirecting to login...');
+            setSessionCookie(false);
             setTimeout(() => router.push('/login'), 1200);
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Failed to update password.';
@@ -74,6 +226,29 @@ export default function ResetPasswordUpdate() {
                         placeholder="••••••••"
                         leftIcon={<Lock size={16} />}
                     />
+                    {mfaRequired && !mfaVerified && (
+                        <>
+                            <Input
+                                label="MFA code"
+                                type="text"
+                                required
+                                value={mfaCode}
+                                onChange={(e) => setMfaCode(e.target.value)}
+                                placeholder="123456"
+                                leftIcon={<Lock size={16} />}
+                                maxLength={6}
+                            />
+                            <Button
+                                type="button"
+                                className="w-full"
+                                variant="secondary"
+                                onClick={restartChallenge}
+                                isLoading={isVerifyingMfa}
+                            >
+                                Refresh MFA challenge
+                            </Button>
+                        </>
+                    )}
                     {error && <p className="text-error text-xs font-mono">{error}</p>}
                     {status && <p className="text-success text-xs font-mono">{status}</p>}
                     <Button type="submit" className="w-full" isLoading={isLoading}>
@@ -85,5 +260,13 @@ export default function ResetPasswordUpdate() {
                 </Button>
             </div>
         </div>
+    );
+}
+
+export default function ResetPasswordUpdate() {
+    return (
+        <Suspense fallback={null}>
+            <ResetPasswordContent />
+        </Suspense>
     );
 }
