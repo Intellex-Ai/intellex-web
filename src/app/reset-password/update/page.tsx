@@ -35,6 +35,7 @@ function ResetPasswordContent() {
     const [isLoading, setIsLoading] = useState(false);
     const [isVerifyingMfa, setIsVerifyingMfa] = useState(false);
     const [ready, setReady] = useState(false);
+    const [emailInput, setEmailInput] = useState('');
     const router = useRouter();
     const searchParams = useSearchParams();
 
@@ -50,6 +51,9 @@ function ResetPasswordContent() {
         (typeof window !== 'undefined'
             ? new URLSearchParams(window.location.search).get('email') || null
             : null);
+    useEffect(() => {
+        if (emailParam) setEmailInput(emailParam);
+    }, [emailParam]);
 
     useEffect(() => {
         const bootstrapSession = async () => {
@@ -86,6 +90,7 @@ function ResetPasswordContent() {
             } catch (err) {
                 setReady(false);
                 setError(err instanceof Error ? err.message : 'Reset link is invalid or expired.');
+                setStatus('Link expired or invalid. Request a new reset link below.');
             }
         };
 
@@ -174,8 +179,9 @@ function ResetPasswordContent() {
     };
 
     const resendResetLink = async () => {
-        if (!emailParam) {
-            setError('Email missing from link. Request a new reset link from the login page.');
+        const targetEmail = emailInput?.trim() || emailParam;
+        if (!targetEmail) {
+            setError('Enter your email to get a new reset link.');
             return;
         }
         setIsLoading(true);
@@ -186,13 +192,13 @@ function ResetPasswordContent() {
                 process.env.NEXT_PUBLIC_SITE_URL ||
                 (typeof window !== 'undefined' ? window.location.origin : 'https://intellex-web.vercel.app');
             const redirectUrl = `${siteUrl}/reset-password/update`;
-            const { error: resetError } = await supabase.auth.resetPasswordForEmail(emailParam, {
+            const { error: resetError } = await supabase.auth.resetPasswordForEmail(targetEmail, {
                 redirectTo: redirectUrl,
             });
             if (resetError) {
                 throw resetError;
             }
-            setStatus(`New reset link sent to ${emailParam}. Check your email.`);
+            setStatus(`New reset link sent to ${targetEmail}. Check your email.`);
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Failed to send reset link.';
             setError(message);
@@ -204,7 +210,7 @@ function ResetPasswordContent() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!ready) {
-            setError('Session not ready. Please reopen the reset link from your email.');
+            setError('Session not ready. Please reopen the reset link from your email or request a new one below.');
             return;
         }
         if (password !== confirm) {
@@ -242,72 +248,81 @@ function ResetPasswordContent() {
                     <p className="text-xs font-mono uppercase text-primary">Password Reset</p>
                     <h1 className="text-2xl font-bold text-white font-mono tracking-tight">Set New Password</h1>
                 </div>
-                <form className="space-y-4" onSubmit={handleSubmit}>
-                    <Input
-                        label="New password"
-                        type="password"
-                        required
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="••••••••"
-                        leftIcon={<Lock size={16} />}
-                    />
-                    <Input
-                        label="Confirm password"
-                        type="password"
-                        required
-                        value={confirm}
-                        onChange={(e) => setConfirm(e.target.value)}
-                        placeholder="••••••••"
-                        leftIcon={<Lock size={16} />}
-                    />
-                    {mfaRequired && !mfaVerified && (
-                        <>
+                {ready ? (
+                    <>
+                        <form className="space-y-4" onSubmit={handleSubmit}>
                             <Input
-                                label="MFA code"
-                                type="text"
+                                label="New password"
+                                type="password"
                                 required
-                                value={mfaCode}
-                                onChange={(e) => setMfaCode(e.target.value)}
-                                placeholder="123456"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="••••••••"
                                 leftIcon={<Lock size={16} />}
-                                maxLength={6}
                             />
-                            <Button
-                                type="button"
-                                className="w-full"
-                                variant="secondary"
-                                onClick={restartChallenge}
-                                isLoading={isVerifyingMfa}
-                            >
-                                Refresh MFA challenge
-                            </Button>
-                        </>
-                    )}
-                    {error && (
-                        <div className="space-y-2">
-                            <p className="text-error text-xs font-mono">{error}</p>
-                            {emailParam && (
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    className="w-full border border-white/10"
-                                    onClick={resendResetLink}
-                                    leftIcon={<Mail size={14} />}
-                                >
-                                    Resend reset link
-                                </Button>
+                            <Input
+                                label="Confirm password"
+                                type="password"
+                                required
+                                value={confirm}
+                                onChange={(e) => setConfirm(e.target.value)}
+                                placeholder="••••••••"
+                                leftIcon={<Lock size={16} />}
+                            />
+                            {mfaRequired && !mfaVerified && (
+                                <>
+                                    <Input
+                                        label="MFA code"
+                                        type="text"
+                                        required
+                                        value={mfaCode}
+                                        onChange={(e) => setMfaCode(e.target.value)}
+                                        placeholder="123456"
+                                        leftIcon={<Lock size={16} />}
+                                        maxLength={6}
+                                    />
+                                    <Button
+                                        type="button"
+                                        className="w-full"
+                                        variant="secondary"
+                                        onClick={restartChallenge}
+                                        isLoading={isVerifyingMfa}
+                                    >
+                                        Refresh MFA challenge
+                                    </Button>
+                                </>
                             )}
-                        </div>
-                    )}
-                    {status && <p className="text-success text-xs font-mono">{status}</p>}
-                    <Button type="submit" className="w-full" isLoading={isLoading}>
-                        Update Password
-                    </Button>
-                </form>
-                <Button variant="ghost" className="w-full" onClick={() => router.push('/login')}>
-                    Back to Login
-                </Button>
+                            {error && <p className="text-error text-xs font-mono">{error}</p>}
+                            {status && <p className="text-success text-xs font-mono">{status}</p>}
+                            <Button type="submit" className="w-full" isLoading={isLoading}>
+                                Update Password
+                            </Button>
+                        </form>
+                        <Button variant="ghost" className="w-full" onClick={() => router.push('/login')}>
+                            Back to Login
+                        </Button>
+                    </>
+                ) : (
+                    <div className="space-y-4">
+                        <p className="text-xs font-mono text-error">{error || 'Link invalid or expired.'}</p>
+                        <Input
+                            label="Email"
+                            type="email"
+                            required
+                            value={emailInput}
+                            onChange={(e) => setEmailInput(e.target.value)}
+                            placeholder="you@example.com"
+                            leftIcon={<Mail size={16} />}
+                        />
+                        {status && <p className="text-success text-xs font-mono">{status}</p>}
+                        <Button type="button" className="w-full" isLoading={isLoading} onClick={resendResetLink}>
+                            Send new reset link
+                        </Button>
+                        <Button variant="ghost" className="w-full" onClick={() => router.push('/login')}>
+                            Back to Login
+                        </Button>
+                    </div>
+                )}
             </div>
         </div>
     );
