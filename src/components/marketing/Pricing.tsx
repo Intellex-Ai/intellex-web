@@ -1,11 +1,7 @@
-'use client';
-
 import clsx from 'clsx';
-import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Check } from 'lucide-react';
-import { motion } from 'framer-motion';
 
 const plans = [
     {
@@ -52,21 +48,6 @@ const plans = [
     }
 ];
 
-const container = {
-    hidden: { opacity: 0 },
-    show: {
-        opacity: 1,
-        transition: {
-            staggerChildren: 0.1
-        }
-    }
-};
-
-const item = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0 }
-};
-
 export default function Pricing() {
     return (
         <section id="pricing" className="py-24 bg-black border-t border-white/10 relative overflow-hidden">
@@ -74,35 +55,22 @@ export default function Pricing() {
 
             <div className="container mx-auto px-6 relative z-10 max-w-7xl">
                 {/* Header */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.5 }}
-                    className="text-center mb-16"
-                >
+                <div className="text-center mb-16">
                     <h2 className="font-mono text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black mb-4 tracking-tight sm:tracking-tighter uppercase text-white break-words">
                         SIMPLE_TRANSPARENT_<br className="block sm:hidden" />PRICING
                     </h2>
                     <p className="font-mono text-muted text-sm md:text-base uppercase tracking-wider">
                         CHOOSE_YOUR_PROTOCOL. NO_HIDDEN_FEES.
                     </p>
-                </motion.div>
+                </div>
 
                 {/* Cards Grid */}
-                <motion.div
-                    variants={container}
-                    initial="hidden"
-                    whileInView="show"
-                    viewport={{ once: true }}
-                    className="grid md:grid-cols-3 sm:grid-cols-1 gap-6"
-                >
+                <div className="grid md:grid-cols-3 sm:grid-cols-1 gap-6">
                     {plans.map((plan, index) => (
-                        <motion.div key={index} variants={item}>
-                            <Card
-                                hoverEffect={true}
+                        <div key={index} className="transition-transform duration-300 will-change-transform hover:-translate-y-1">
+                            <div
                                 className={clsx(
-                                    "h-full bg-black/50 backdrop-blur-sm",
+                                    "relative h-full bg-black/50 backdrop-blur-sm border border-white/10",
                                     plan.popular && "border-2 border-primary shadow-[0_0_40px_-10px_rgba(255,77,0,0.3)]"
                                 )}
                             >
@@ -147,10 +115,10 @@ export default function Pricing() {
                                         {plan.cta.toUpperCase()}
                                     </Button>
                                 </div>
-                            </Card>
-                        </motion.div>
+                            </div>
+                        </div>
                     ))}
-                </motion.div>
+                </div>
             </div>
         </section>
     );

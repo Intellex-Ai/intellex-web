@@ -1,10 +1,30 @@
 'use client';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 export const CinematicBackground = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const [shouldAnimate, setShouldAnimate] = useState(false);
+
+    // Decide whether to run the expensive canvas effect (skip for low-end or reduced-motion contexts).
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+        const compute = () => {
+            const isMobile = window.innerWidth < 768;
+            setShouldAnimate(!mediaQuery.matches && !isMobile);
+        };
+        compute();
+        const onResize = () => compute();
+        mediaQuery.addEventListener('change', compute);
+        window.addEventListener('resize', onResize);
+        return () => {
+            mediaQuery.removeEventListener('change', compute);
+            window.removeEventListener('resize', onResize);
+        };
+    }, []);
 
     useEffect(() => {
+        if (!shouldAnimate) return;
         const canvas = canvasRef.current;
         if (!canvas) return;
 
@@ -215,7 +235,17 @@ export const CinematicBackground = () => {
             window.removeEventListener('resize', handleResize);
             cancelAnimationFrame(animationFrameId);
         };
-    }, []);
+    }, [shouldAnimate]);
+
+    // Static fallback for reduced motion or small screens.
+    if (!shouldAnimate) {
+        return (
+            <div className="absolute inset-0 overflow-hidden bg-black pointer-events-none">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,77,0,0.08)_0%,rgba(0,0,0,0.9)_65%,#000_100%)]" />
+                <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[length:80px_80px]" />
+            </div>
+        );
+    }
 
     return (
         <div className="absolute inset-0 overflow-hidden bg-black pointer-events-none">
