@@ -456,6 +456,35 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                         return;
                     }
 
+                    // Enforce MFA even for OAuth sessions: if a verified TOTP factor exists, start a challenge and gate login.
+                    const { mfaRequired, mfaChallengeId } = get();
+                    if (!mfaRequired && !mfaChallengeId) {
+                        const { data: factors, error: listError } = await supabase.auth.mfa.listFactors();
+                        if (listError) {
+                            console.error('Failed to list MFA factors', listError);
+                        } else {
+                            const verifiedTotp = factors?.totp?.find((f) => f.status === 'verified');
+                            if (verifiedTotp) {
+                                const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({
+                                    factorId: verifiedTotp.id,
+                                });
+                                if (challengeError || !challenge?.id) {
+                                    console.error('Unable to start MFA challenge', challengeError);
+                                } else {
+                                    // Clear session cookie until MFA completes to keep middleware from granting access.
+                                    setSessionCookie(false);
+                                    set({
+                                        mfaRequired: true,
+                                        mfaChallengeId: challenge.id,
+                                        mfaFactorId: verifiedTotp.id,
+                                        user: null,
+                                    });
+                                    return;
+                                }
+                            }
+                        }
+                    }
+
                     try {
                         // Prefer canonical profile via service-role proxy to include avatar.
                         const profileRes = await fetch(`/api/profile?email=${encodeURIComponent(authUser.email ?? '')}`);
