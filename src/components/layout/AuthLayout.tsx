@@ -11,9 +11,9 @@ interface AuthLayoutProps {
 
 export default function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
     return (
-        <div className="flex h-screen bg-black overflow-hidden">
+        <div className="flex min-h-screen lg:h-screen bg-black lg:overflow-hidden justify-center lg:justify-start">
             {/* Left Side - Form */}
-            <div className="flex-1 flex flex-col p-4 md:p-8 max-w-[600px] border-r border-white/10 bg-black relative z-20 lg:max-w-full lg:w-1/2 xl:w-[40%] h-full">
+            <div className="flex-1 flex flex-col p-4 md:p-8 lg:border-r border-white/10 bg-black relative z-20 lg:max-w-full lg:w-1/2 xl:w-[40%] w-full lg:h-full overflow-y-auto">
                 {/* Mobile Background - Ripple */}
                 <div className="absolute inset-0 z-0 lg:hidden">
                     <RippleBackground />
@@ -32,7 +32,7 @@ export default function AuthLayout({ children, title, subtitle }: AuthLayoutProp
                     </Link>
                 </div>
 
-                <div className="flex-1 flex flex-col justify-center max-w-[400px] w-full mx-auto relative z-10">
+                <div className="flex-1 flex flex-col justify-center max-w-[400px] w-full mx-auto relative z-10 py-10">
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}

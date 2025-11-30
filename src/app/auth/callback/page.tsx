@@ -123,7 +123,7 @@ function CallbackContent() {
     }, [emailParam, hashParams, refreshUser, router, searchParams]);
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-black px-4">
+        <div className="min-h-screen flex items-center justify-center bg-black px-4 py-10">
             <div className="w-full max-w-md space-y-4 bg-white/5 border border-white/10 p-6">
                 <p className="text-xs font-mono uppercase text-primary">Account Verification</p>
                 <h1 className="text-xl font-bold text-white font-mono tracking-tight">Email Confirmation</h1>

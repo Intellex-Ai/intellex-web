@@ -194,94 +194,91 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
                 </Button>
             </div>
 
-            <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-white/10" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-black px-2 text-muted font-mono">Or continue with</span>
-                </div>
+            <div className="flex items-center gap-4 my-4">
+                <div className="h-px flex-1 bg-white/10" />
+                <span className="text-xs uppercase text-muted font-mono whitespace-nowrap">Or continue with</span>
+                <div className="h-px flex-1 bg-white/10" />
             </div>
 
             {!mfaRequired ? (
                 <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-                {error && (
-                    <div className="p-3 bg-error/10 border border-error text-error text-xs font-mono uppercase">
-                        {error}
-                    </div>
-                )}
-                {awaitingVerification && (
-                    <div className="p-3 bg-white/5 border border-white/10 text-primary text-xs font-mono uppercase flex items-center gap-3">
-                        <span className="w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-                        <span>{verificationMessage || 'Waiting for verification...'}</span>
-                    </div>
-                )}
-
-                <div className="space-y-3">
-                    {type === 'signup' && (
-                        <Input
-                            type="text"
-                            label="Full name"
-                            placeholder="COMMANDER DATA"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            required={type === 'signup'}
-                            leftIcon={<UserIcon size={16} />}
-                        />
+                    {error && (
+                        <div className="p-3 bg-error/10 border border-error text-error text-xs font-mono uppercase">
+                            {error}
+                        </div>
                     )}
-                    <Input
-                        type="email"
-                        label="Email address"
-                        placeholder="OPERATIVE@INTELLEX.AI"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                        leftIcon={<Mail size={16} />}
-                    />
-                    <Input
-                        type="password"
-                        label="Password"
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        leftIcon={<Lock size={16} />}
-                    />
-                </div>
+                    {awaitingVerification && (
+                        <div className="p-3 bg-white/5 border border-white/10 text-primary text-xs font-mono uppercase flex items-center gap-3">
+                            <span className="w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                            <span>{verificationMessage || 'Waiting for verification...'}</span>
+                        </div>
+                    )}
 
-                <Button
-                    type="submit"
-                    className="w-full mt-1"
-                    isLoading={loading}
-                    size="lg"
-                    variant="primary"
-                >
-                    {type === 'login' ? 'INITIATE_SESSION' : 'CREATE_IDENTITY'}
-                </Button>
-
-                {type === 'login' && (
-                    <div className="text-right">
-                        <Link href="/reset-password" className="text-xs font-mono text-primary hover:underline">
-                            Forgot password?
-                        </Link>
+                    <div className="space-y-3">
+                        {type === 'signup' && (
+                            <Input
+                                type="text"
+                                label="Full name"
+                                placeholder="COMMANDER DATA"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                required={type === 'signup'}
+                                leftIcon={<UserIcon size={16} />}
+                            />
+                        )}
+                        <Input
+                            type="email"
+                            label="Email address"
+                            placeholder="OPERATIVE@INTELLEX.AI"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                            leftIcon={<Mail size={16} />}
+                        />
+                        <Input
+                            type="password"
+                            label="Password"
+                            placeholder="••••••••"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                            leftIcon={<Lock size={16} />}
+                        />
                     </div>
-                )}
 
-                <div className="relative mt-4 pt-4 border-t border-white/10">
-                    <div className="flex flex-col items-center gap-2">
-                        <span className="text-[10px] font-mono text-muted uppercase tracking-wider">
-                            {type === 'login' ? "New to the network?" : "Returning operative?"}
-                        </span>
-                        <a
-                            href={type === 'login' ? '/signup' : '/login'}
-                            className="w-full"
-                        >
-                            <Button variant="ghost" className="w-full border border-white/10 hover:border-primary/50 h-10" type="button">
-                                {type === 'login' ? 'ESTABLISH IDENTITY' : 'ACCESS TERMINAL'}
-                            </Button>
-                        </a>
+                    <Button
+                        type="submit"
+                        className="w-full mt-1"
+                        isLoading={loading}
+                        size="lg"
+                        variant="primary"
+                    >
+                        {type === 'login' ? 'INITIATE_SESSION' : 'CREATE_IDENTITY'}
+                    </Button>
+
+                    {type === 'login' && (
+                        <div className="text-right">
+                            <Link href="/reset-password" className="text-xs font-mono text-primary hover:underline">
+                                Forgot password?
+                            </Link>
+                        </div>
+                    )}
+
+                    <div className="relative mt-4 pt-4 border-t border-white/10">
+                        <div className="flex flex-col items-center gap-2">
+                            <span className="text-[10px] font-mono text-muted uppercase tracking-wider">
+                                {type === 'login' ? "New to the network?" : "Returning operative?"}
+                            </span>
+                            <a
+                                href={type === 'login' ? '/signup' : '/login'}
+                                className="w-full"
+                            >
+                                <Button variant="ghost" className="w-full border border-white/10 hover:border-primary/50 h-10" type="button">
+                                    {type === 'login' ? 'ESTABLISH IDENTITY' : 'ACCESS TERMINAL'}
+                                </Button>
+                            </a>
+                        </div>
                     </div>
-                </div>
                 </form>
             ) : (
                 <form onSubmit={handleVerifyMfa} className="flex flex-col gap-3">
