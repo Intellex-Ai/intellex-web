@@ -8,17 +8,6 @@ import { useEffect } from 'react';
  * to the reset password page, preserving tokens.
  */
 export function RecoveryRedirect() {
-    if (typeof window !== 'undefined') {
-        const { hash, search, pathname } = window.location;
-        const hasRecovery =
-            hash.includes('type=recovery') ||
-            search.includes('type=recovery');
-        if (hasRecovery && !pathname.startsWith('/reset-password/update')) {
-            window.location.replace(`/reset-password/update${search}${hash}`);
-            return null;
-        }
-    }
-
     useEffect(() => {
         if (typeof window === 'undefined') return;
         const { hash, search, pathname } = window.location;

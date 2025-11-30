@@ -198,20 +198,24 @@ export const useStore = create<AppState>()(persist((set, get) => ({
 
                     const supabaseUserId = authedUser?.user?.id;
                     // MFA gate: if a verified TOTP factor exists, start challenge and await code.
-                    const { data: factors } = await supabase.auth.mfa.listFactors();
-                    const verifiedTotp = factors?.totp?.find((f) => f.status === 'verified');
-                    if (verifiedTotp) {
-                        const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({
-                            factorId: verifiedTotp.id,
-                        });
+                        const { data: factors } = await supabase.auth.mfa.listFactors();
+                        const verifiedTotp = factors?.totp?.find((f) => f.status === 'verified');
+                        if (verifiedTotp) {
+                            const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({
+                                factorId: verifiedTotp.id,
+                            });
                         if (challengeError || !challenge?.id) {
                             throw challengeError || new Error('Unable to start MFA challenge.');
                         }
+                        // Do NOT mark app session as active until MFA completes.
+                        setSessionCookie(false);
                         set({
                             mfaRequired: true,
                             mfaChallengeId: challenge.id,
                             mfaFactorId: verifiedTotp.id,
                             isLoading: false,
+                            // Keep user unset until MFA completes to avoid setting the auth cookie.
+                            user: null,
                         });
                         return false;
                     }
@@ -242,8 +246,8 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                     }
                     throw new Error('Authentication failed');
                 } finally {
-                    const { user } = get();
-                    setSessionCookie(Boolean(user));
+                    const { user, mfaRequired } = get();
+                    setSessionCookie(Boolean(user) && !mfaRequired);
                     set({ isLoading: false });
                 }
             },
