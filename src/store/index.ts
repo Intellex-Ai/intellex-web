@@ -17,6 +17,40 @@ type ProfileRow = {
 };
 
 const SESSION_COOKIE = 'intellex_session';
+const MFA_VERIFIED_KEY = 'intellex:mfa-verified';
+
+const readMfaVerified = (token?: string) => {
+    if (typeof window === 'undefined' || !token) return false;
+    try {
+        const raw = window.localStorage.getItem(MFA_VERIFIED_KEY);
+        if (!raw) return false;
+        const parsed = JSON.parse(raw) as Record<string, number>;
+        return Boolean(parsed[token]);
+    } catch {
+        return false;
+    }
+};
+
+const markMfaVerified = (token?: string) => {
+    if (typeof window === 'undefined' || !token) return;
+    try {
+        const raw = window.localStorage.getItem(MFA_VERIFIED_KEY);
+        const parsed = raw ? (JSON.parse(raw) as Record<string, number>) : {};
+        parsed[token] = Date.now();
+        window.localStorage.setItem(MFA_VERIFIED_KEY, JSON.stringify(parsed));
+    } catch {
+        // non-blocking
+    }
+};
+
+const clearMfaVerified = () => {
+    if (typeof window === 'undefined') return;
+    try {
+        window.localStorage.removeItem(MFA_VERIFIED_KEY);
+    } catch {
+        // non-blocking
+    }
+};
 const getSiteBaseUrl = () => {
     if (typeof window !== 'undefined') return window.location.origin;
     if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
@@ -298,6 +332,9 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                     if (verifyError) {
                         throw new Error(verifyError.message ?? 'MFA verification failed');
                     }
+                    const { data: refreshedSession } = await supabase.auth.getSession();
+                    const accessToken = refreshedSession?.session?.access_token;
+                    markMfaVerified(accessToken);
                     // After successful MFA, refresh user and reset flags.
                     await get().refreshUser();
                     set({
@@ -322,6 +359,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                     console.warn('Supabase signOut failed', err);
                 }
                 setSessionCookie(false);
+                clearMfaVerified();
                 set({
                     user: null,
                     projects: [],
@@ -470,6 +508,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                         });
                         return;
                     }
+                    const accessToken = sessionData?.session?.access_token;
 
                     const { data: userData, error: userError } = await supabase.auth.getUser();
                     if (userError) {
@@ -491,7 +530,8 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                             console.error('Failed to list MFA factors', listError);
                         } else {
                             const verifiedTotp = factors?.totp?.find((f) => f.status === 'verified');
-                            if (verifiedTotp) {
+                            const alreadyVerified = readMfaVerified(accessToken);
+                            if (verifiedTotp && !alreadyVerified) {
                                 const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({
                                     factorId: verifiedTotp.id,
                                 });
@@ -529,6 +569,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                                     },
                                 });
                                 setSessionCookie(true);
+                                markMfaVerified(accessToken);
                                 return;
                             }
                         }
@@ -537,6 +578,9 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                         const latest = await AuthService.current(authUser.email || undefined);
                         set({ user: latest });
                         setSessionCookie(Boolean(latest));
+                        if (latest) {
+                            markMfaVerified(accessToken);
+                        }
                     } catch (apiError) {
                         console.warn('Auth API current() failed, trying direct Supabase profile', apiError);
 
@@ -559,6 +603,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                                 },
                             });
                             setSessionCookie(true);
+                            markMfaVerified(accessToken);
                             return;
                         }
 
@@ -577,6 +622,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                             },
                         });
                         setSessionCookie(true);
+                        markMfaVerified(accessToken);
                     }
                 } catch (error) {
                     console.error('Failed to refresh user', error);
