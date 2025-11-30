@@ -18,6 +18,22 @@ type ProfileRow = {
 
 const SESSION_COOKIE = 'intellex_session';
 const MFA_VERIFIED_KEY = 'intellex:mfa-verified';
+const baseMfaState = {
+    mfaRequired: false,
+    mfaChallengeId: null as string | null,
+    mfaFactorId: null as string | null,
+};
+
+const clearAuthState = (set: (partial: Partial<AppState>) => void) => {
+    set({
+        user: null,
+        projects: [],
+        activeProject: null,
+        messages: [],
+        activePlan: null,
+        ...baseMfaState,
+    });
+};
 
 const readMfaVerified = (token?: string) => {
     if (typeof window === 'undefined' || !token) return false;
@@ -103,9 +119,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
     activePlan: null,
     messages: [],
     isLoading: false,
-    mfaRequired: false,
-    mfaChallengeId: null,
-    mfaFactorId: null,
+    ...baseMfaState,
     timezone: 'UTC',
 
             login: async (email: string, password: string, name?: string, mode: 'login' | 'signup' = 'login'): Promise<boolean> => {
@@ -360,29 +374,11 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                 }
                 setSessionCookie(false);
                 clearMfaVerified();
-                set({
-                    user: null,
-                    projects: [],
-                    activeProject: null,
-                    messages: [],
-                    activePlan: null,
-                    mfaRequired: false,
-                    mfaChallengeId: null,
-                    mfaFactorId: null,
-                });
+                clearAuthState(set);
             },
 
             clearSession: () => {
-                set({
-                    user: null,
-                    projects: [],
-                    activeProject: null,
-                    messages: [],
-                    activePlan: null,
-                    mfaRequired: false,
-                    mfaChallengeId: null,
-                    mfaFactorId: null,
-                });
+                clearAuthState(set);
             },
 
             setTimezone: (timezone: string) => {
@@ -518,7 +514,10 @@ export const useStore = create<AppState>()(persist((set, get) => ({
 
                     const authUser = userData?.user;
                     if (!authUser) {
-                        set({ user: null });
+                        set({
+                            user: null,
+                            ...baseMfaState,
+                        });
                         return;
                     }
 
@@ -531,16 +530,17 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                         } else {
                             const verifiedTotp = factors?.totp?.find((f) => f.status === 'verified');
                             const alreadyVerified = readMfaVerified(accessToken);
-                            if (verifiedTotp && !alreadyVerified) {
-                                const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({
-                                    factorId: verifiedTotp.id,
-                                });
-                                if (challengeError || !challenge?.id) {
+                    if (verifiedTotp && !alreadyVerified) {
+                        const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({
+                            factorId: verifiedTotp.id,
+                        });
+                        if (challengeError || !challenge?.id) {
                                     console.error('Unable to start MFA challenge', challengeError);
                                 } else {
                                     // Clear session cookie until MFA completes to keep middleware from granting access.
                                     setSessionCookie(false);
                                     set({
+                                        ...baseMfaState,
                                         mfaRequired: true,
                                         mfaChallengeId: challenge.id,
                                         mfaFactorId: verifiedTotp.id,
@@ -629,9 +629,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                     setSessionCookie(false);
                     set({
                         user: null,
-                        mfaRequired: false,
-                        mfaChallengeId: null,
-                        mfaFactorId: null,
+                        ...baseMfaState,
                     });
                 }
             },

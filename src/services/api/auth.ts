@@ -1,16 +1,8 @@
 import { User } from '@/types';
-import { apiRequest } from './client';
+import { api } from './client';
 
 export const AuthService = {
-    login: (email: string, name?: string, supabaseUserId?: string) => {
-        const body: Record<string, unknown> = { email };
-        if (name) body.name = name;
-        if (supabaseUserId) body.supabaseUserId = supabaseUserId;
-        return apiRequest<User>('/auth/login', {
-            method: 'POST',
-            body,
-        });
-    },
-
-    current: (email?: string) => apiRequest<User>(email ? `/auth/me?email=${encodeURIComponent(email)}` : '/auth/me'),
+    login: (email: string, name?: string, supabaseUserId?: string) =>
+        api.post<User>('/auth/login', { email, ...(name ? { name } : {}), ...(supabaseUserId ? { supabaseUserId } : {}) }),
+    current: (email?: string) => api.get<User>('/auth/me', email ? { email } : undefined),
 };

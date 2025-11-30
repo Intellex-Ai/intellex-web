@@ -1,3 +1,5 @@
+'use client';
+
 import { Zap, Shield, BarChart3, Globe, Cpu, Layers } from 'lucide-react';
 
 const features = [

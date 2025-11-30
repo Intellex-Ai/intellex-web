@@ -1,5 +1,5 @@
 import { ChatMessage, ResearchPlan } from '@/types';
-import { apiRequest } from './client';
+import { api } from './client';
 
 export type SendMessageResult = {
     userMessage: ChatMessage;
@@ -8,12 +8,8 @@ export type SendMessageResult = {
 };
 
 export const ChatService = {
-    getMessages: (projectId: string) =>
-        apiRequest<ChatMessage[]>(`/projects/${projectId}/messages`),
+    getMessages: (projectId: string) => api.get<ChatMessage[]>(`/projects/${projectId}/messages`),
 
     sendMessage: (projectId: string, content: string) =>
-        apiRequest<SendMessageResult>(`/projects/${projectId}/messages`, {
-            method: 'POST',
-            body: { content },
-        }),
+        api.post<SendMessageResult>(`/projects/${projectId}/messages`, { content }),
 };

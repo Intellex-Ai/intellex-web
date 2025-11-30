@@ -19,9 +19,9 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import clsx from 'clsx';
-import { supabase } from '@/lib/supabase';
 import Image from 'next/image';
 import { DigitalClock } from '@/components/ui/DigitalClock';
+import { useAuthSync } from '@/hooks/useAuthSync';
 
 interface AppLayoutProps {
     children: React.ReactNode;
@@ -38,8 +38,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const pathname = usePathname();
     const router = useRouter();
-    const { logout, user, refreshUser, clearSession, timezone } = useStore();
+    const { logout, user, clearSession, timezone } = useStore();
     const [isSigningOut, setIsSigningOut] = useState(false);
+    useAuthSync();
 
     const handleSignOut = async () => {
         if (isSigningOut) return;
@@ -54,28 +55,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
     };
 
     useEffect(() => {
-        refreshUser();
-    }, [refreshUser]);
-
-    useEffect(() => {
-        const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-            if (event === 'SIGNED_OUT') {
-                clearSession();
-                router.push('/');
-            }
-            if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
-                refreshUser();
-            }
-            const eventName = event as unknown as string;
-            if (eventName === 'TOKEN_EXPIRED') {
-                clearSession();
-                router.push('/');
-            }
-        });
-        return () => {
-            sub?.subscription.unsubscribe();
-        };
-    }, [clearSession, refreshUser, router]);
+        // When session expires or is cleared by auth sync, send user home.
+        if (!user) {
+            router.push('/');
+        }
+    }, [router, user]);
 
     const displayName = user?.name || user?.email || '';
     const displayEmail = user?.email || '';

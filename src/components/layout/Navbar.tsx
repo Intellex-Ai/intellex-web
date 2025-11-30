@@ -2,21 +2,21 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Menu, X, User } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { Button } from '@/components/ui/Button';
 import { useStore } from '@/store';
-import { supabase } from '@/lib/supabase';
-import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
+import { useAuthSync } from '@/hooks/useAuthSync';
+import { UserMenu } from '@/components/layout/UserMenu';
 
 export default function Navbar() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-    const { user, logout, refreshUser, clearSession, mfaRequired, mfaChallengeId } = useStore();
+    const { user, logout, mfaRequired, mfaChallengeId } = useStore();
     const router = useRouter();
     const pathname = usePathname();
+    useAuthSync();
 
     const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
@@ -40,26 +40,6 @@ export default function Navbar() {
             }
         }
     };
-
-    useEffect(() => {
-        // Hydrate user on initial load for marketing pages.
-        refreshUser();
-        const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-            if (event === 'SIGNED_OUT') {
-                clearSession();
-            }
-            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-                refreshUser();
-            }
-            const eventName = event as unknown as string;
-            if (eventName === 'TOKEN_EXPIRED') {
-                clearSession();
-            }
-        });
-        return () => {
-            sub?.subscription.unsubscribe();
-        };
-    }, [clearSession, refreshUser]);
 
     // If MFA challenge is pending, route user to login to enter the code.
     useEffect(() => {
@@ -90,56 +70,7 @@ export default function Navbar() {
                     ))}
 
                     {user ? (
-                        <div className="relative">
-                            <button
-                                className="flex items-center gap-3 px-3 py-2 border border-white/10 bg-white/5 hover:bg-white/10 transition rounded-full"
-                                onClick={() => setIsDropdownOpen((v) => !v)}
-                            >
-                                <div className="w-8 h-8 rounded-full overflow-hidden bg-white/10 flex items-center justify-center">
-                                    {user.avatarUrl ? (
-                                        <Image src={user.avatarUrl} alt="avatar" width={32} height={32} className="object-cover" />
-                                    ) : (
-                                        <User size={16} />
-                                    )}
-                                </div>
-                                <span className="font-mono text-sm uppercase tracking-wide hidden xl:inline">
-                                    {user.name || user.email}
-                                </span>
-                            </button>
-                            {isDropdownOpen && (
-                                <div className="absolute right-0 mt-2 w-48 bg-black border border-white/10 shadow-lg py-2 z-50">
-                                    {[
-                                        { label: 'Profile', href: '/profile' },
-                                        { label: 'Projects', href: '/projects' },
-                                        { label: 'Settings', href: '/settings' },
-                                    ].map((item) => (
-                                        <button
-                                            key={item.href}
-                                            onClick={() => {
-                                                setIsDropdownOpen(false);
-                                                router.push(item.href);
-                                            }}
-                                            className="w-full text-left px-4 py-2 text-sm font-mono text-white hover:bg-white/10"
-                                        >
-                                            {item.label}
-                                        </button>
-                                    ))}
-                                    <button
-                                        onClick={async () => {
-                                            setIsDropdownOpen(false);
-                                            try {
-                                                await logout();
-                                            } catch (err) {
-                                                console.warn('Logout failed', err);
-                                            }
-                                        }}
-                                        className="w-full text-left px-4 py-2 text-sm font-mono text-error hover:bg-error/10"
-                                    >
-                                        Logout
-                                    </button>
-                                </div>
-                            )}
-                        </div>
+                        <UserMenu user={user} onLogout={logout} />
                     ) : (
                         <>
                             <Link href="/login" className="font-mono text-sm font-bold text-muted-foreground hover:text-white transition-colors uppercase tracking-widest">

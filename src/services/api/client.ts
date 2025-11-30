@@ -2,7 +2,7 @@
 const inferredProdApi =
     process.env.NEXT_PUBLIC_API_BASE_URL ||
     (process.env.VERCEL ? 'https://intellex-api.vercel.app' : undefined);
-const API_BASE_URL = (inferredProdApi || '/api').replace(/\/$/, '');
+export const API_BASE_URL = (inferredProdApi || '/api').replace(/\/$/, '');
 
 export class ApiError extends Error {
     status: number;
@@ -19,8 +19,10 @@ type ApiRequestOptions = Omit<RequestInit, 'body'> & {
     body?: Record<string, unknown> | string | FormData | null;
 };
 
-export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
-    const url = `${API_BASE_URL}${path}`;
+const buildUrl = (path: string) => `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
+
+async function request<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
+    const url = buildUrl(path);
     const headers: HeadersInit = {
         'Content-Type': 'application/json',
         ...(options.headers || {}),
@@ -77,4 +79,24 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     return data as T;
 }
 
-export { API_BASE_URL };
+const withQuery = (path: string, params?: Record<string, string | number | undefined | null>) => {
+    if (!params) return path;
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, val]) => {
+        if (val !== undefined && val !== null) searchParams.append(key, String(val));
+    });
+    const query = searchParams.toString();
+    return query ? `${path}?${query}` : path;
+};
+
+export const api = {
+    request,
+    get: <T>(path: string, params?: Record<string, string | number | undefined | null>) =>
+        request<T>(withQuery(path, params), { method: 'GET' }),
+    post: <T>(path: string, body?: ApiRequestOptions['body']) => request<T>(path, { method: 'POST', body }),
+    put: <T>(path: string, body?: ApiRequestOptions['body']) => request<T>(path, { method: 'PUT', body }),
+    del: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+};
+
+// Backwards compatibility
+export const apiRequest = request;

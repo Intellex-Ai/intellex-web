@@ -1,13 +1,10 @@
 import { ResearchPlan, ResearchProject } from '@/types';
-import { apiRequest } from './client';
+import { api } from './client';
 
 export const ProjectService = {
-    list: () => apiRequest<ResearchProject[]>('/projects'),
-    get: (projectId: string) => apiRequest<ResearchProject>(`/projects/${projectId}`),
+    list: () => api.get<ResearchProject[]>('/projects'),
+    get: (projectId: string) => api.get<ResearchProject>(`/projects/${projectId}`),
     create: (title: string, goal: string, userId?: string | null) =>
-        apiRequest<ResearchProject>('/projects', {
-            method: 'POST',
-            body: { title, goal, userId },
-        }),
-    getPlan: (projectId: string) => apiRequest<ResearchPlan>(`/projects/${projectId}/plan`),
+        api.post<ResearchProject>('/projects', { title, goal, userId }),
+    getPlan: (projectId: string) => api.get<ResearchPlan>(`/projects/${projectId}/plan`),
 };
