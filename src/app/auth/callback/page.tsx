@@ -22,6 +22,20 @@ function AuthCallbackInner() {
             const oauthError = searchParams?.get('error_description') || searchParams?.get('error');
             const code = searchParams?.get('code');
 
+            // In some prod flows the Supabase session is already set (e.g., provider redirects without a code).
+            // If a session exists, short-circuit and proceed to the app.
+            try {
+                const { data: sessionData } = await supabase.auth.getSession();
+                if (sessionData?.session && !code && !oauthError) {
+                    setStatus('complete');
+                    await useStore.getState().refreshUser();
+                    router.replace(redirectTo);
+                    return;
+                }
+            } catch {
+                // non-blocking; fall through to code exchange
+            }
+
             if (oauthError) {
                 setError(oauthError);
                 return;
