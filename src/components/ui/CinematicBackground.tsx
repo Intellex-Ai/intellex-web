@@ -10,8 +10,8 @@ export const CinematicBackground = () => {
         if (typeof window === 'undefined') return;
         const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
         const compute = () => {
-            const isMobile = window.innerWidth < 768;
-            setShouldAnimate(!mediaQuery.matches && !isMobile);
+            // Keep honoring reduced motion, but allow animation on all screen sizes.
+            setShouldAnimate(!mediaQuery.matches);
         };
         compute();
         const onResize = () => compute();
