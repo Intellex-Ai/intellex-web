@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { useStore } from '@/store';
+import { AuthService } from '@/services/api/auth';
 
 const SESSION_COOKIE = 'intellex_session';
 const setSessionCookie = (isLoggedIn: boolean) => {
@@ -88,6 +89,18 @@ function CallbackContent() {
                 setStatus('success');
                 setMessage('Email verified. Redirecting to your dashboard...');
                 setSessionCookie(true);
+                try {
+                    const { data: userData } = await supabase.auth.getUser();
+                    const authedUser = userData?.user;
+                    if (authedUser?.email) {
+                        const displayName =
+                            (authedUser.user_metadata as Record<string, unknown>)?.display_name ||
+                            (authedUser.email.includes('@') ? authedUser.email.split('@')[0] : authedUser.email);
+                        await AuthService.login(authedUser.email, displayName as string | undefined, authedUser.id);
+                    }
+                } catch (provisionErr) {
+                    console.warn('Post-verification provisioning failed', provisionErr);
+                }
                 await refreshUser();
                 setTimeout(() => router.replace('/dashboard'), 800);
             } catch (err) {

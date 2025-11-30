@@ -105,9 +105,30 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                     };
 
                     const signInPassword = async () => {
-                        const { error } = await supabase.auth.signInWithPassword({ email, password });
+                        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
                         if (error) {
                             throw error;
+                        }
+
+                        const confirmed =
+                            Boolean(data.session?.user?.email_confirmed_at) ||
+                            Boolean((data.session?.user as { confirmed_at?: string | null } | null)?.confirmed_at);
+                        if (!confirmed) {
+                            const baseUrl = getSiteBaseUrl();
+                            const redirectTo = baseUrl
+                                ? `${baseUrl}/auth/callback?email=${encodeURIComponent(email)}`
+                                : undefined;
+                            await supabase.auth.signOut().catch(() => {});
+                            await supabase.auth
+                                .resend({
+                                    type: 'signup',
+                                    email,
+                                    options: {
+                                        emailRedirectTo: redirectTo,
+                                    },
+                                })
+                                .catch(() => {});
+                            throw new Error('Email not confirmed. We just re-sent a verification link.');
                         }
                     };
 
@@ -150,10 +171,14 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                                 }
                                 throw error;
                             }
-                            if (!data.session) {
+                            // Always force verification before login; do not keep any session alive here.
+                            await supabase.auth.signOut().catch(() => {});
+                            setSessionCookie(false);
+                            const shouldResend = !data.session;
+                            if (shouldResend) {
                                 await resendConfirmation();
-                                throw new Error('Please confirm your email to activate your account. We just re-sent the link.');
                             }
+                            throw new Error('Please confirm your email to activate your account. Check your inbox for the link.');
                         }
                     } else {
                         await signInPassword();
