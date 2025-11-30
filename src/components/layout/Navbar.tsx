@@ -9,13 +9,14 @@ import { Button } from '@/components/ui/Button';
 import { useStore } from '@/store';
 import { supabase } from '@/lib/supabase';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 export default function Navbar() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-    const { user, logout, refreshUser, clearSession } = useStore();
+    const { user, logout, refreshUser, clearSession, mfaRequired, mfaChallengeId } = useStore();
     const router = useRouter();
+    const pathname = usePathname();
 
     const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
@@ -59,6 +60,14 @@ export default function Navbar() {
             sub?.subscription.unsubscribe();
         };
     }, [clearSession, refreshUser]);
+
+    // If MFA challenge is pending, route user to login to enter the code.
+    useEffect(() => {
+        if (!mfaRequired || !mfaChallengeId) return;
+        if (pathname === '/login' || pathname === '/signup') return;
+        const target = pathname || '/dashboard';
+        router.replace(`/login?redirect=${encodeURIComponent(target)}`);
+    }, [mfaRequired, mfaChallengeId, pathname, router]);
 
     return (
         <nav className="fixed top-0 left-0 right-0 z-50 h-[80px] flex items-center border-b border-white/10 bg-black/80 backdrop-blur-md supports-[backdrop-filter]:bg-black/60">
