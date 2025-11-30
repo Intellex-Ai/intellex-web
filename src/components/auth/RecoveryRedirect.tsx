@@ -12,10 +12,7 @@ export function RecoveryRedirect() {
         const { hash, search, pathname } = window.location;
         const hasRecovery =
             hash.includes('type=recovery') ||
-            hash.includes('recovery') ||
-            hash.includes('access_token') ||
-            search.includes('type=recovery') ||
-            search.includes('access_token');
+            search.includes('type=recovery');
         if (hasRecovery && !pathname.startsWith('/reset-password/update')) {
             window.location.replace(`/reset-password/update${search}${hash}`);
             return null;
@@ -27,10 +24,7 @@ export function RecoveryRedirect() {
         const { hash, search, pathname } = window.location;
         const hasRecovery =
             hash.includes('type=recovery') ||
-            hash.includes('recovery') ||
-            hash.includes('access_token') ||
-            search.includes('type=recovery') ||
-            search.includes('access_token');
+            search.includes('type=recovery');
         if (hasRecovery && !pathname.startsWith('/reset-password/update')) {
             window.location.replace(`/reset-password/update${search}${hash}`);
         }
