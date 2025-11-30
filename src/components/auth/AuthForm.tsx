@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Mail, Lock, Github, User as UserIcon } from 'lucide-react';
 import Link from 'next/link';
+import { useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 
 
 interface AuthFormProps {
@@ -24,6 +26,55 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
     const router = useRouter();
 
     const { login, verifyMfa, mfaRequired } = useStore();
+    const redirectDest = redirectTo || '/dashboard';
+
+    // Detect a verified session created in another tab (e.g., after clicking the email link)
+    useEffect(() => {
+        let active = true;
+        const handleSignedIn = async () => {
+            if (!active) return;
+            try {
+                await useStore.getState().refreshUser();
+            } catch {
+                // non-blocking
+            }
+            if (!active) return;
+            router.replace(redirectDest);
+        };
+
+        const checkSession = async () => {
+            const { data } = await supabase.auth.getSession();
+            if (data.session) {
+                await handleSignedIn();
+            }
+        };
+
+        checkSession();
+
+        const { data: subscription } = supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_IN' && session) {
+                void handleSignedIn();
+            }
+        });
+
+        const onStorage = (event: StorageEvent) => {
+            if (!active) return;
+            if ((event.key && event.key.startsWith('sb-')) || event.key === 'intellex:email-verified') {
+                void checkSession();
+            }
+        };
+        if (typeof window !== 'undefined') {
+            window.addEventListener('storage', onStorage);
+        }
+
+        return () => {
+            active = false;
+            subscription?.subscription.unsubscribe();
+            if (typeof window !== 'undefined') {
+                window.removeEventListener('storage', onStorage);
+            }
+        };
+    }, [redirectDest, router]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -46,7 +97,7 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
             const success = await login(userEmail, safePassword, displayName, type);
             const nextMfa = useStore.getState().mfaRequired;
             if (success && !nextMfa) {
-                router.push(redirectTo || '/dashboard');
+                router.push(redirectDest);
             }
         } catch (err: unknown) {
             if (err instanceof Error) {

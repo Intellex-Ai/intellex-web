@@ -87,7 +87,7 @@ function CallbackContent() {
                     throw new Error('Invalid or missing verification token.');
                 }
                 setStatus('success');
-                setMessage('Email verified. Redirecting to your dashboard...');
+                setMessage('Email verified. We notified your original tab to continue.');
                 setSessionCookie(true);
                 try {
                     const { data: userData } = await supabase.auth.getUser();
@@ -97,12 +97,21 @@ function CallbackContent() {
                             (authedUser.user_metadata as Record<string, unknown>)?.display_name ||
                             (authedUser.email.includes('@') ? authedUser.email.split('@')[0] : authedUser.email);
                         await AuthService.login(authedUser.email, displayName as string | undefined, authedUser.id);
+                        // Signal other tabs (especially the signup tab) that verification is complete.
+                        if (typeof window !== 'undefined') {
+                            localStorage.setItem(
+                                'intellex:email-verified',
+                                JSON.stringify({
+                                    email: authedUser.email,
+                                    at: Date.now(),
+                                })
+                            );
+                        }
                     }
                 } catch (provisionErr) {
                     console.warn('Post-verification provisioning failed', provisionErr);
                 }
                 await refreshUser();
-                setTimeout(() => router.replace('/dashboard'), 800);
             } catch (err) {
                 const msg = err instanceof Error ? err.message : 'Verification failed.';
                 setStatus('error');
@@ -121,7 +130,18 @@ function CallbackContent() {
                 <p className={`text-sm ${status === 'error' ? 'text-error' : 'text-muted'}`}>{message}</p>
                 {status === 'pending' && <p className="text-xs text-muted font-mono">Processing...</p>}
                 {status === 'resending' && <p className="text-xs text-muted font-mono">Resending confirmation...</p>}
-                {status === 'success' && <p className="text-xs text-success font-mono">Success</p>}
+                {status === 'success' && (
+                    <div className="space-y-3">
+                        <p className="text-xs text-success font-mono">Verified. You can close this tab.</p>
+                        <button
+                            className="text-xs font-mono text-primary underline"
+                            onClick={() => router.replace('/dashboard')}
+                            type="button"
+                        >
+                            Continue to dashboard
+                        </button>
+                    </div>
+                )}
                 {status === 'error' && (
                     <div className="space-y-2">
                         <button
