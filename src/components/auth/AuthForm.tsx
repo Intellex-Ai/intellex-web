@@ -1,13 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from '@/store';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Mail, Lock, Github, User as UserIcon } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
 
@@ -23,7 +22,10 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [mfaCode, setMfaCode] = useState('');
+    const [awaitingVerification, setAwaitingVerification] = useState(false);
+    const [verificationMessage, setVerificationMessage] = useState<string | null>(null);
     const router = useRouter();
+    const pollRef = useRef<NodeJS.Timeout | null>(null);
 
     const { login, verifyMfa, mfaRequired } = useStore();
     const redirectDest = redirectTo || '/dashboard';
@@ -76,6 +78,53 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
         };
     }, [redirectDest, router]);
 
+    const startVerificationWatch = (targetEmail: string, pwd: string, providedName?: string) => {
+        if (pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+        }
+        setAwaitingVerification(true);
+        setVerificationMessage('Waiting for verification... check your inbox.');
+
+        const poll = async () => {
+            try {
+                const res = await fetch(`/api/auth/confirm-status?email=${encodeURIComponent(targetEmail)}`);
+                if (!res.ok) return;
+                const data = (await res.json()) as { confirmed?: boolean };
+                if (data.confirmed) {
+                    setVerificationMessage('Verified. Signing you in...');
+                    if (pollRef.current) {
+                        clearInterval(pollRef.current);
+                        pollRef.current = null;
+                    }
+                    try {
+                        const success = await login(targetEmail, pwd, providedName, 'login');
+                        const nextMfa = useStore.getState().mfaRequired;
+                        if (success && !nextMfa) {
+                            router.push(redirectDest);
+                        }
+                    } catch (err) {
+                        setError(err instanceof Error ? err.message : 'Sign-in after verification failed.');
+                        setAwaitingVerification(false);
+                    }
+                }
+            } catch (err) {
+                console.warn('Verification poll failed', err);
+            }
+        };
+
+        poll();
+        pollRef.current = setInterval(poll, 4000);
+    };
+
+    useEffect(() => {
+        return () => {
+            if (pollRef.current) {
+                clearInterval(pollRef.current);
+            }
+        };
+    }, []);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
@@ -100,10 +149,13 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
                 router.push(redirectDest);
             }
         } catch (err: unknown) {
-            if (err instanceof Error) {
-                setError(err.message);
-            } else {
-                setError('An unknown error occurred');
+            const msg = err instanceof Error ? err.message : 'An unknown error occurred';
+            setError(msg);
+
+            // For signup flows, begin polling for cross-device verification instead of relying on local storage.
+            if (type === 'signup' && msg.toLowerCase().includes('confirm')) {
+                startVerificationWatch(email.trim(), password.trim(), name.trim() || undefined);
+                setError(null);
             }
         } finally {
             setLoading(false);
@@ -116,7 +168,7 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
         setError(null);
         try {
             await verifyMfa(mfaCode.trim());
-            router.push(redirectTo || '/dashboard');
+            router.push(redirectDest);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to verify MFA code');
         } finally {
@@ -156,6 +208,12 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
                 {error && (
                     <div className="p-3 bg-error/10 border border-error text-error text-xs font-mono uppercase">
                         {error}
+                    </div>
+                )}
+                {awaitingVerification && (
+                    <div className="p-3 bg-white/5 border border-white/10 text-primary text-xs font-mono uppercase flex items-center gap-3">
+                        <span className="w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                        <span>{verificationMessage || 'Waiting for verification...'}</span>
                     </div>
                 )}
 

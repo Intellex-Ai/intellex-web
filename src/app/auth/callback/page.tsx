@@ -130,18 +130,7 @@ function CallbackContent() {
                 <p className={`text-sm ${status === 'error' ? 'text-error' : 'text-muted'}`}>{message}</p>
                 {status === 'pending' && <p className="text-xs text-muted font-mono">Processing...</p>}
                 {status === 'resending' && <p className="text-xs text-muted font-mono">Resending confirmation...</p>}
-                {status === 'success' && (
-                    <div className="space-y-3">
-                        <p className="text-xs text-success font-mono">Verified. You can close this tab.</p>
-                        <button
-                            className="text-xs font-mono text-primary underline"
-                            onClick={() => router.replace('/dashboard')}
-                            type="button"
-                        >
-                            Continue to dashboard
-                        </button>
-                    </div>
-                )}
+                {status === 'success' && <p className="text-xs text-success font-mono">Verified. You can close this tab.</p>}
                 {status === 'error' && (
                     <div className="space-y-2">
                         <button
