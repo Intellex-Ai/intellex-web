@@ -437,7 +437,9 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                         console.error('Failed to get Supabase session', sessionError);
                         return;
                     }
-                    if (!sessionData?.session) {
+                    const hasSession = Boolean(sessionData?.session);
+                    setSessionCookie(hasSession);
+                    if (!hasSession) {
                         set({ user: null });
                         return;
                     }
@@ -470,6 +472,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                                         preferences: normalizePreferences(profile.preferences),
                                     },
                                 });
+                                setSessionCookie(true);
                                 return;
                             }
                         }
@@ -477,6 +480,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                         // Fallback: backend auth/me (service role)
                         const latest = await AuthService.current(authUser.email || undefined);
                         set({ user: latest });
+                        setSessionCookie(Boolean(latest));
                     } catch (apiError) {
                         console.warn('Auth API current() failed, trying direct Supabase profile', apiError);
 
@@ -498,6 +502,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                                     preferences: normalizePreferences(profile.preferences),
                                 },
                             });
+                            setSessionCookie(true);
                             return;
                         }
 
@@ -515,9 +520,12 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                                 preferences: { theme: 'system' },
                             },
                         });
+                        setSessionCookie(true);
                     }
                 } catch (error) {
                     console.error('Failed to refresh user', error);
+                    setSessionCookie(false);
+                    set({ user: null });
                 }
             },
 }),
