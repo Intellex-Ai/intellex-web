@@ -19,6 +19,7 @@ const createSupabaseClient = (): AuthOnlyClient => {
         getUser: async () => ({ data: { user: null }, error: null }),
         signOut: async () => ({ error: null }),
         signInWithPassword: async () => ({ data: { user: null }, error: { message: 'Supabase not configured' } }),
+        signInWithOAuth: async () => ({ data: null, error: { message: 'Supabase not configured' } }),
         signUp: async () => ({ data: { user: null, session: null }, error: { message: 'Supabase not configured' } }),
         resetPasswordForEmail: async () => ({ data: null, error: { message: 'Supabase not configured' } }),
         updateUser: async () => ({ data: null, error: { message: 'Supabase not configured' } }),

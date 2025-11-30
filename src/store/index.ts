@@ -50,6 +50,7 @@ interface AppState {
 
     // Actions
     login: (email: string, password: string, name?: string, mode?: 'login' | 'signup') => Promise<boolean>;
+    loginWithProvider: (provider: 'google' | 'github', redirectTo?: string) => Promise<void>;
     verifyMfa: (code: string) => Promise<void>;
     logout: () => Promise<void>;
     loadProjects: () => Promise<void>;
@@ -249,6 +250,36 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                     const { user, mfaRequired } = get();
                     setSessionCookie(Boolean(user) && !mfaRequired);
                     set({ isLoading: false });
+                }
+            },
+
+            loginWithProvider: async (provider: 'google' | 'github', redirectPath = '/dashboard') => {
+                set({ isLoading: true, mfaRequired: false, mfaChallengeId: null, mfaFactorId: null });
+                try {
+                    const baseUrl = getSiteBaseUrl();
+                    const origin = baseUrl || (typeof window !== 'undefined' ? window.location.origin : undefined);
+                    if (!origin) {
+                        throw new Error('Unable to determine redirect URL. Please try again.');
+                    }
+
+                    const redirectTo = `${origin}/auth/callback?redirect=${encodeURIComponent(redirectPath)}`;
+                    const { data, error } = await supabase.auth.signInWithOAuth({
+                        provider,
+                        options: {
+                            redirectTo,
+                            scopes: provider === 'google' ? 'email profile' : undefined,
+                        },
+                    });
+                    if (error) {
+                        throw new Error(error.message ?? 'Unable to start social sign-in.');
+                    }
+                    // Some environments return a URL instead of auto-redirecting; honor it.
+                    if (data?.url) {
+                        window.location.assign(data.url);
+                    }
+                } catch (err) {
+                    set({ isLoading: false });
+                    throw err instanceof Error ? err : new Error('Unable to start social sign-in.');
                 }
             },
 
