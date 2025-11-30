@@ -316,13 +316,35 @@ export const useStore = create<AppState>()(persist((set, get) => ({
             },
 
             logout: async () => {
-                await supabase.auth.signOut();
+                try {
+                    await supabase.auth.signOut();
+                } catch (err) {
+                    console.warn('Supabase signOut failed', err);
+                }
                 setSessionCookie(false);
-                set({ user: null, projects: [], activeProject: null, messages: [], activePlan: null });
+                set({
+                    user: null,
+                    projects: [],
+                    activeProject: null,
+                    messages: [],
+                    activePlan: null,
+                    mfaRequired: false,
+                    mfaChallengeId: null,
+                    mfaFactorId: null,
+                });
             },
 
             clearSession: () => {
-                set({ user: null, projects: [], activeProject: null, messages: [], activePlan: null });
+                set({
+                    user: null,
+                    projects: [],
+                    activeProject: null,
+                    messages: [],
+                    activePlan: null,
+                    mfaRequired: false,
+                    mfaChallengeId: null,
+                    mfaFactorId: null,
+                });
             },
 
             setTimezone: (timezone: string) => {
@@ -440,7 +462,12 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                     const hasSession = Boolean(sessionData?.session);
                     setSessionCookie(hasSession);
                     if (!hasSession) {
-                        set({ user: null });
+                        set({
+                            user: null,
+                            mfaRequired: false,
+                            mfaChallengeId: null,
+                            mfaFactorId: null,
+                        });
                         return;
                     }
 
@@ -554,7 +581,12 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                 } catch (error) {
                     console.error('Failed to refresh user', error);
                     setSessionCookie(false);
-                    set({ user: null });
+                    set({
+                        user: null,
+                        mfaRequired: false,
+                        mfaChallengeId: null,
+                        mfaFactorId: null,
+                    });
                 }
             },
 }),
