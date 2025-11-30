@@ -14,7 +14,7 @@ import { useRouter } from 'next/navigation';
 export default function Navbar() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-    const { user, logout, refreshUser } = useStore();
+    const { user, logout, refreshUser, clearSession } = useStore();
     const router = useRouter();
 
     const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
@@ -45,20 +45,20 @@ export default function Navbar() {
         refreshUser();
         const { data: sub } = supabase.auth.onAuthStateChange((event) => {
             if (event === 'SIGNED_OUT') {
-                logout();
+                clearSession();
             }
             if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
                 refreshUser();
             }
             const eventName = event as unknown as string;
             if (eventName === 'TOKEN_EXPIRED') {
-                logout();
+                clearSession();
             }
         });
         return () => {
             sub?.subscription.unsubscribe();
         };
-    }, [logout, refreshUser]);
+    }, [clearSession, refreshUser]);
 
     return (
         <nav className="fixed top-0 left-0 right-0 z-50 h-[80px] flex items-center border-b border-white/10 bg-black/80 backdrop-blur-md supports-[backdrop-filter]:bg-black/60">
@@ -116,9 +116,13 @@ export default function Navbar() {
                                         </button>
                                     ))}
                                     <button
-                                        onClick={() => {
+                                        onClick={async () => {
                                             setIsDropdownOpen(false);
-                                            logout();
+                                            try {
+                                                await logout();
+                                            } catch (err) {
+                                                console.warn('Logout failed', err);
+                                            }
                                         }}
                                         className="w-full text-left px-4 py-2 text-sm font-mono text-error hover:bg-error/10"
                                     >
@@ -162,7 +166,19 @@ export default function Navbar() {
                                 {user ? (
                                     <>
                                         <Link href="/dashboard" className="font-mono text-3xl font-black text-white uppercase tracking-wider hover:text-primary transition-colors" onClick={toggleMenu}>DASHBOARD</Link>
-                                        <Button variant="secondary" size="lg" className="w-full" onClick={() => { logout(); toggleMenu(); }}>
+                                        <Button
+                                            variant="secondary"
+                                            size="lg"
+                                            className="w-full"
+                                            onClick={async () => {
+                                                toggleMenu();
+                                                try {
+                                                    await logout();
+                                                } catch (err) {
+                                                    console.warn('Logout failed', err);
+                                                }
+                                            }}
+                                        >
                                             LOGOUT
                                         </Button>
                                     </>
