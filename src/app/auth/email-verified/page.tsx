@@ -39,9 +39,9 @@ function EmailVerifiedInner() {
             }
 
             let verified = false;
+            let sameDevice = false; // Track if this is the same device that initiated signup
 
             // Method 1: If we have tokens in hash (implicit flow), set session to verify
-            // Note: We do NOT sign out - that would invalidate the session for the original signup tab
             if (accessToken && refreshToken) {
                 try {
                     const { error: sessionError } = await supabase.auth.setSession({
@@ -50,8 +50,8 @@ function EmailVerifiedInner() {
                     });
                     if (!sessionError) {
                         verified = true;
-                        // Don't sign out! The original signup tab needs the session to remain valid.
-                        // This tab just won't set the intellex_session cookie, so it won't have app access.
+                        // This could be same or different device, assume different to be safe
+                        sameDevice = false;
                     }
                 } catch {
                     // Continue to try other methods
@@ -69,9 +69,10 @@ function EmailVerifiedInner() {
                     const data = await res.json();
                     if (data.verified) {
                         verified = true;
+                        sameDevice = false; // Server-side verification = different device
                     } else if (data.alreadyUsed) {
-                        // Token was already used - email is verified, show success
                         verified = true;
+                        sameDevice = false;
                     }
                 } catch {
                     // Continue to try other methods
@@ -85,14 +86,13 @@ function EmailVerifiedInner() {
                     const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
                     if (!exchangeError) {
                         verified = true;
-                        // IMPORTANT: Do NOT call supabase.auth.signOut() here!
-                        // Signing out invalidates the session across ALL tabs/devices.
-                        // The original signup tab is polling for verification and will
-                        // handle the login. We just don't set the intellex_session cookie
-                        // on this tab so it won't have dashboard access.
+                        // PKCE succeeded = same device/browser (has the code_verifier)
+                        // The original signup tab will detect the session via onAuthStateChange
+                        sameDevice = true;
                     }
                 } catch {
-                    // Code exchange failed - expected on different device
+                    // Code exchange failed - this is a different device
+                    sameDevice = false;
                 }
             }
 
@@ -107,11 +107,18 @@ function EmailVerifiedInner() {
                         const data = await res.json();
                         if (data.confirmed) {
                             verified = true;
+                            sameDevice = false; // Fallback check = likely different device
                         }
                     }
                 } catch {
                     // Non-blocking
                 }
+            }
+
+            // If this is a different device, sign out to prevent auto-login on "Go to Login"
+            // This is safe because the original signup tab is on a different device
+            if (verified && !sameDevice) {
+                await supabase.auth.signOut().catch(() => {});
             }
 
             if (verified) {
