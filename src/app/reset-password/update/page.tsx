@@ -6,17 +6,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { supabase } from '@/lib/supabase';
 import { Lock } from 'lucide-react';
-
-const SESSION_COOKIE = 'intellex_session';
-const setSessionCookie = (isLoggedIn: boolean) => {
-    if (typeof document === 'undefined') return;
-    const securePart = typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : '';
-    if (isLoggedIn) {
-        document.cookie = `${SESSION_COOKIE}=1; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax${securePart}`;
-    } else {
-        document.cookie = `${SESSION_COOKIE}=; path=/; max-age=0; SameSite=Lax${securePart}`;
-    }
-};
+import { setSessionCookie } from '@/lib/cookies';
 
 function ResetPasswordContent() {
     const [password, setPassword] = useState('');

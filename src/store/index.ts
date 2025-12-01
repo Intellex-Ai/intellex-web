@@ -7,6 +7,7 @@ import { ChatService } from '@/services/api/chat';
 import { ApiError } from '@/services/api/client';
 import { supabase } from '@/lib/supabase';
 import { API_BASE_URL } from '@/services/api/client';
+import { setSessionCookie, setMfaPendingCookie } from '@/lib/cookies';
 
 type ProfileRow = {
     id: string;
@@ -16,8 +17,6 @@ type ProfileRow = {
     preferences?: unknown;
 };
 
-const SESSION_COOKIE = 'intellex_session';
-const MFA_PENDING_COOKIE = 'mfa_pending';
 const MFA_VERIFIED_KEY = 'intellex:mfa-verified';
 const baseMfaState = {
     mfaRequired: false,
@@ -72,31 +71,6 @@ const getSiteBaseUrl = () => {
     if (typeof window !== 'undefined') return window.location.origin;
     if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
     return undefined;
-};
-const getCookieOptions = () => {
-    // Don't set explicit Domain - let browser use current host (more reliable for same-domain cookies)
-    const securePart = typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : '';
-    return { securePart };
-};
-
-const setSessionCookie = (isLoggedIn: boolean) => {
-    if (typeof document === 'undefined') return;
-    const { securePart } = getCookieOptions();
-    if (isLoggedIn) {
-        document.cookie = `${SESSION_COOKIE}=1; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax${securePart}`;
-    } else {
-        document.cookie = `${SESSION_COOKIE}=; path=/; max-age=0; SameSite=Lax${securePart}`;
-    }
-};
-
-const setMfaPendingCookie = (pending: boolean) => {
-    if (typeof document === 'undefined') return;
-    const { securePart } = getCookieOptions();
-    if (pending) {
-        document.cookie = `${MFA_PENDING_COOKIE}=1; path=/; max-age=${60 * 60}; SameSite=Lax${securePart}`;
-    } else {
-        document.cookie = `${MFA_PENDING_COOKIE}=; path=/; max-age=0; SameSite=Lax${securePart}`;
-    }
 };
 
 interface AppState {

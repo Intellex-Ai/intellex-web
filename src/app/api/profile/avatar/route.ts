@@ -1,16 +1,12 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const BUCKET = 'avatars';
 
-const badRequest = (message: string) => NextResponse.json({ error: message }, { status: 400 });
-const serverError = (message: string) => NextResponse.json({ error: message }, { status: 500 });
-
 export async function POST(req: Request) {
-    if (!supabaseUrl || !serviceRole) {
-        return serverError('Supabase service role not configured');
+    const admin = getSupabaseAdmin();
+    if (!admin) {
+        return NextResponse.json({ error: 'Supabase service role not configured' }, { status: 500 });
     }
 
     const form = await req.formData();
@@ -18,10 +14,8 @@ export async function POST(req: Request) {
     const file = form.get('file') as File | null;
 
     if (!email || !file) {
-        return badRequest('email and file are required');
+        return NextResponse.json({ error: 'email and file are required' }, { status: 400 });
     }
-
-    const admin = createClient(supabaseUrl, serviceRole);
 
     try {
         // Ensure bucket exists and is public (ignore if already created)
@@ -31,7 +25,7 @@ export async function POST(req: Request) {
         const { data: listData, error: listErr } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
         if (listErr) throw listErr;
         const found = listData.users.find((u) => u.email?.toLowerCase() === email);
-        if (!found) return badRequest('User not found');
+        if (!found) return NextResponse.json({ error: 'User not found' }, { status: 400 });
 
         const arrayBuffer = await file.arrayBuffer();
         const ext = file.name.split('.').pop() || 'png';
@@ -72,6 +66,6 @@ export async function POST(req: Request) {
         return NextResponse.json({ avatarUrl: publicUrl, user: profile });
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Upload failed';
-        return serverError(message);
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

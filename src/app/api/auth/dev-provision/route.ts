@@ -1,35 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const allowDev = process.env.ENABLE_DEV_AUTH_AUTOCONFIRM === 'true';
-
-const badRequest = (message: string) => NextResponse.json({ error: message }, { status: 400 });
-const serverError = (message: string, detail?: unknown) => NextResponse.json({ error: message, detail }, { status: 500 });
 
 export async function POST(req: NextRequest) {
     if (!allowDev) {
         return NextResponse.json({ error: 'Dev provisioning is disabled' }, { status: 403 });
     }
 
-    if (!supabaseUrl || !serviceKey) {
-        return serverError('Supabase service role not configured');
+    const admin = getSupabaseAdmin();
+    if (!admin) {
+        return NextResponse.json({ error: 'Supabase service role not configured' }, { status: 500 });
     }
 
     let payload: { email?: string; password?: string; name?: string };
     try {
         payload = await req.json();
     } catch {
-        return badRequest('Invalid JSON payload');
+        return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
     }
 
     const { email, password, name } = payload;
     if (!email || !password) {
-        return badRequest('email and password are required');
+        return NextResponse.json({ error: 'email and password are required' }, { status: 400 });
     }
-
-    const admin = createClient(supabaseUrl, serviceKey);
 
     try {
         const create = await admin.auth.admin.createUser({
@@ -64,6 +58,7 @@ export async function POST(req: NextRequest) {
     } catch (err) {
         console.error('Dev provision failed', err);
         const message = err instanceof Error ? err.message : 'Provisioning failed';
-        return serverError(message, err instanceof Error ? { name: err.name, message: err.message } : err);
+        const detail = err instanceof Error ? { name: err.name, message: err.message } : err;
+        return NextResponse.json({ error: message, detail }, { status: 500 });
     }
 }

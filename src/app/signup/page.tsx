@@ -6,14 +6,7 @@ import { useStore } from '@/store';
 import AuthLayout from '@/components/layout/AuthLayout';
 import AuthForm from '@/components/auth/AuthForm';
 import { supabase } from '@/lib/supabase';
-
-const MFA_PENDING_COOKIE = 'mfa_pending';
-
-const clearMfaPendingCookie = () => {
-    if (typeof document === 'undefined') return;
-    const securePart = typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : '';
-    document.cookie = `${MFA_PENDING_COOKIE}=; path=/; max-age=0; SameSite=Lax${securePart}`;
-};
+import { clearMfaPendingCookie } from '@/lib/cookies';
 
 function SignupContent() {
     const { user } = useStore();

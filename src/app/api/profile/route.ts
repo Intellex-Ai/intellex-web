@@ -1,24 +1,18 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-const badRequest = (message: string) => NextResponse.json({ error: message }, { status: 400 });
-const serverError = (message: string) => NextResponse.json({ error: message }, { status: 500 });
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 export async function GET(req: Request) {
-    if (!supabaseUrl || !serviceRole) {
-        return serverError('Supabase service role not configured');
+    const admin = getSupabaseAdmin();
+    if (!admin) {
+        return NextResponse.json({ error: 'Supabase service role not configured' }, { status: 500 });
     }
 
     const { searchParams } = new URL(req.url);
     const email = searchParams.get('email')?.trim().toLowerCase();
     if (!email) {
-        return badRequest('email is required');
+        return NextResponse.json({ error: 'email is required' }, { status: 400 });
     }
 
-    const admin = createClient(supabaseUrl, serviceRole);
     try {
         const { data: profile, error } = await admin
             .from('users')
@@ -31,20 +25,21 @@ export async function GET(req: Request) {
         return NextResponse.json({ user: profile });
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to fetch profile';
-        return serverError(message);
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }
 
 export async function POST(req: Request) {
-    if (!supabaseUrl || !serviceRole) {
-        return serverError('Supabase service role not configured');
+    const admin = getSupabaseAdmin();
+    if (!admin) {
+        return NextResponse.json({ error: 'Supabase service role not configured' }, { status: 500 });
     }
 
     let payload: { email?: string; name?: string; avatarUrl?: string; title?: string; organization?: string; location?: string; bio?: string };
     try {
         payload = await req.json();
     } catch {
-        return badRequest('Invalid JSON payload');
+        return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
     }
 
     const email = payload.email?.trim().toLowerCase();
@@ -56,10 +51,8 @@ export async function POST(req: Request) {
     const bio = payload.bio?.trim();
 
     if (!email || !name) {
-        return badRequest('email and name are required');
+        return NextResponse.json({ error: 'email and name are required' }, { status: 400 });
     }
-
-    const admin = createClient(supabaseUrl, serviceRole);
 
     try {
         // Find user by email via admin list
@@ -69,7 +62,7 @@ export async function POST(req: Request) {
         }
         const found = listData.users.find((u) => u.email?.toLowerCase() === email);
         if (!found) {
-            return badRequest('User not found in auth');
+            return NextResponse.json({ error: 'User not found in auth' }, { status: 400 });
         }
 
         // Fetch existing preferences to merge profile details without losing theme selection.
@@ -117,6 +110,6 @@ export async function POST(req: Request) {
         return NextResponse.json({ user: profile });
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to update profile';
-        return serverError(message);
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }
