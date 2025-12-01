@@ -40,7 +40,8 @@ function EmailVerifiedInner() {
 
             let verified = false;
 
-            // Method 1: If we have tokens in hash (implicit flow), set session then sign out
+            // Method 1: If we have tokens in hash (implicit flow), set session to verify
+            // Note: We do NOT sign out - that would invalidate the session for the original signup tab
             if (accessToken && refreshToken) {
                 try {
                     const { error: sessionError } = await supabase.auth.setSession({
@@ -49,7 +50,8 @@ function EmailVerifiedInner() {
                     });
                     if (!sessionError) {
                         verified = true;
-                        await supabase.auth.signOut();
+                        // Don't sign out! The original signup tab needs the session to remain valid.
+                        // This tab just won't set the intellex_session cookie, so it won't have app access.
                     }
                 } catch {
                     // Continue to try other methods
@@ -77,12 +79,17 @@ function EmailVerifiedInner() {
             }
 
             // Method 3: If we have a code, try PKCE exchange (works if same browser)
+            // This completes the email verification in Supabase
             if (!verified && code) {
                 try {
                     const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
                     if (!exchangeError) {
                         verified = true;
-                        await supabase.auth.signOut();
+                        // IMPORTANT: Do NOT call supabase.auth.signOut() here!
+                        // Signing out invalidates the session across ALL tabs/devices.
+                        // The original signup tab is polling for verification and will
+                        // handle the login. We just don't set the intellex_session cookie
+                        // on this tab so it won't have dashboard access.
                     }
                 } catch {
                     // Code exchange failed - expected on different device

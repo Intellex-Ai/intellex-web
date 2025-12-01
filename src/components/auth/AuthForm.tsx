@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Mail, Lock, Github, User as UserIcon } from 'lucide-react';
 import Link from 'next/link';
+import { useAuthSync } from '@/hooks/useAuthSync';
 
 
 interface AuthFormProps {
@@ -26,8 +27,19 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
     const router = useRouter();
     const pollRef = useRef<NodeJS.Timeout | null>(null);
 
-    const { login, loginWithProvider, verifyMfa, mfaRequired } = useStore();
+    const { login, loginWithProvider, verifyMfa, mfaRequired, user } = useStore();
     const redirectDest = redirectTo || '/dashboard';
+
+    // Sync auth state across tabs - when email is verified in another tab,
+    // Supabase fires SIGNED_IN event which triggers refreshUser and updates the user state
+    useAuthSync();
+
+    // When user state changes (e.g., from useAuthSync detecting a session), redirect to dashboard
+    useEffect(() => {
+        if (user && !mfaRequired) {
+            router.replace(redirectDest);
+        }
+    }, [user, mfaRequired, router, redirectDest]);
 
     // Detect a verified session created in another tab (e.g., after clicking the email link) and refresh only when no MFA is pending.
     useEffect(() => {
