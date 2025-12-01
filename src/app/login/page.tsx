@@ -24,17 +24,25 @@ function LoginContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const redirect = searchParams?.get('redirect') || '/dashboard';
+    const mfaParam = searchParams?.get('mfa');
     const [isCheckingSession, setIsCheckingSession] = useState(true);
 
-    // When landing on login page, ALWAYS clear any pending MFA state.
-    // If user navigated here (back button, direct URL, clicking login link), they're abandoning the MFA flow.
-    // MFA form should only appear AFTER a fresh login attempt triggers it, not on page load.
+    // When landing on login page, check if this is a legitimate MFA redirect or user abandoning flow.
+    // If mfa=pending param exists, this is a redirect from OAuth callback for MFA verification - keep state.
+    // Otherwise, user navigated here directly (back button, link click) - clear stale MFA state.
     useEffect(() => {
-        const clearStaleStateAndCheck = async () => {
+        const handleMfaState = async () => {
             const state = useStore.getState();
+            const hasMfaState = state.mfaRequired || state.mfaChallengeId || state.mfaFactorId;
             
-            // Always clear MFA state when landing on login page - user is starting fresh
-            if (state.mfaRequired || state.mfaChallengeId || state.mfaFactorId) {
+            // If mfa=pending param exists and we have MFA state, this is a legitimate MFA flow
+            if (mfaParam === 'pending' && hasMfaState) {
+                setIsCheckingSession(false);
+                return;
+            }
+            
+            // Otherwise, clear any stale MFA state - user is starting fresh
+            if (hasMfaState) {
                 clearMfaPendingCookie();
                 // Sign out to clear the partial session (authenticated but MFA not verified)
                 await supabase.auth.signOut().catch(() => {});
@@ -43,8 +51,8 @@ function LoginContent() {
             
             setIsCheckingSession(false);
         };
-        clearStaleStateAndCheck();
-    }, []); // Run once on mount, not dependent on user state
+        handleMfaState();
+    }, [mfaParam]); // Depend on mfaParam to handle URL changes
 
     useEffect(() => {
         if (user) {

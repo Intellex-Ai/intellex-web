@@ -31,7 +31,7 @@ function AuthCallbackInner() {
                     const { mfaRequired, user } = useStore.getState();
                     setStatus('complete');
                     if (mfaRequired) {
-                        router.replace(`/login?redirect=${encodeURIComponent(redirectTo)}`);
+                        router.replace(`/login?redirect=${encodeURIComponent(redirectTo)}&mfa=pending`);
                     } else if (user) {
                         router.replace(redirectTo);
                     } else {
@@ -64,7 +64,7 @@ function AuthCallbackInner() {
                 setStatus('complete');
                 if (mfaRequired) {
                     // MFA is pending, redirect to login with the intended destination
-                    router.replace(`/login?redirect=${encodeURIComponent(redirectTo)}`);
+                    router.replace(`/login?redirect=${encodeURIComponent(redirectTo)}&mfa=pending`);
                 } else if (user) {
                     router.replace(redirectTo);
                 } else {
