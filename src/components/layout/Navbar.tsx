@@ -41,10 +41,13 @@ export default function Navbar() {
         }
     };
 
-    // If MFA challenge is pending, route user to login to enter the code.
+    // If MFA challenge is pending, route user to login only when they try to access protected app routes.
     useEffect(() => {
         if (!mfaRequired || !mfaChallengeId) return;
-        if (pathname === '/login' || pathname === '/signup') return;
+        if (pathname === '/login' || pathname === '/signup' || pathname === '/') return;
+        const protectedPaths = ['/dashboard', '/projects', '/research', '/settings', '/profile'];
+        const isProtected = protectedPaths.some((p) => pathname.startsWith(p === '/' ? p : `/${p.replace(/^\//, '')}`));
+        if (!isProtected) return;
         const target = pathname || '/dashboard';
         router.replace(`/login?redirect=${encodeURIComponent(target)}`);
     }, [mfaRequired, mfaChallengeId, pathname, router]);
