@@ -38,7 +38,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const pathname = usePathname();
     const router = useRouter();
-    const { logout, user, clearSession, timezone } = useStore();
+    const { logout, user, clearSession, timezone, isHydrated } = useStore();
     const [isSigningOut, setIsSigningOut] = useState(false);
     useAuthSync();
 
@@ -55,11 +55,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
     };
 
     useEffect(() => {
+        // Only redirect after hydration to avoid flash redirects on page load
         // When session expires or is cleared by auth sync, send user home.
-        if (!user) {
+        if (isHydrated && !user) {
             router.push('/');
         }
-    }, [router, user]);
+    }, [router, user, isHydrated]);
 
     const displayName = user?.name || user?.email || '';
     const displayEmail = user?.email || '';

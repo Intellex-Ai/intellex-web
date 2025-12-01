@@ -74,31 +74,28 @@ const getSiteBaseUrl = () => {
     return undefined;
 };
 const getCookieOptions = () => {
-    const siteDomain = process.env.NEXT_PUBLIC_SITE_URL
-        ? new URL(process.env.NEXT_PUBLIC_SITE_URL).hostname
-        : undefined;
-    const domainPart = siteDomain ? `; Domain=${siteDomain}` : '';
+    // Don't set explicit Domain - let browser use current host (more reliable for same-domain cookies)
     const securePart = typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : '';
-    return { domainPart, securePart };
+    return { securePart };
 };
 
 const setSessionCookie = (isLoggedIn: boolean) => {
     if (typeof document === 'undefined') return;
-    const { domainPart, securePart } = getCookieOptions();
+    const { securePart } = getCookieOptions();
     if (isLoggedIn) {
-        document.cookie = `${SESSION_COOKIE}=1; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax${domainPart}${securePart}`;
+        document.cookie = `${SESSION_COOKIE}=1; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax${securePart}`;
     } else {
-        document.cookie = `${SESSION_COOKIE}=; path=/; max-age=0; SameSite=Lax${domainPart}${securePart}`;
+        document.cookie = `${SESSION_COOKIE}=; path=/; max-age=0; SameSite=Lax${securePart}`;
     }
 };
 
 const setMfaPendingCookie = (pending: boolean) => {
     if (typeof document === 'undefined') return;
-    const { domainPart, securePart } = getCookieOptions();
+    const { securePart } = getCookieOptions();
     if (pending) {
-        document.cookie = `${MFA_PENDING_COOKIE}=1; path=/; max-age=${60 * 60}; SameSite=Lax${domainPart}${securePart}`;
+        document.cookie = `${MFA_PENDING_COOKIE}=1; path=/; max-age=${60 * 60}; SameSite=Lax${securePart}`;
     } else {
-        document.cookie = `${MFA_PENDING_COOKIE}=; path=/; max-age=0; SameSite=Lax${domainPart}${securePart}`;
+        document.cookie = `${MFA_PENDING_COOKIE}=; path=/; max-age=0; SameSite=Lax${securePart}`;
     }
 };
 
@@ -109,6 +106,7 @@ interface AppState {
     activePlan: ResearchPlan | null;
     messages: ChatMessage[];
     isLoading: boolean;
+    isHydrated: boolean;
     mfaRequired: boolean;
     mfaChallengeId: string | null;
     mfaFactorId: string | null;
@@ -126,6 +124,7 @@ interface AppState {
     refreshUser: () => Promise<void>;
     clearSession: () => void;
     setTimezone: (timezone: string) => void;
+    setHydrated: () => void;
 }
 
 export const useStore = create<AppState>()(persist((set, get) => ({
@@ -135,6 +134,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
     activePlan: null,
     messages: [],
     isLoading: false,
+    isHydrated: false,
     ...baseMfaState,
     timezone: 'UTC',
 
@@ -416,6 +416,10 @@ export const useStore = create<AppState>()(persist((set, get) => ({
 
             setTimezone: (timezone: string) => {
                 set({ timezone });
+            },
+
+            setHydrated: () => {
+                set({ isHydrated: true });
             },
 
             loadProjects: async () => {
@@ -741,4 +745,8 @@ export const useStore = create<AppState>()(persist((set, get) => ({
         messages: state.messages,
         timezone: state.timezone,
     }),
+    onRehydrateStorage: () => (state) => {
+        // Mark store as hydrated once localStorage data is loaded
+        state?.setHydrated();
+    },
 }));
