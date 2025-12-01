@@ -5,12 +5,23 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useStore } from '@/store';
 import AuthLayout from '@/components/layout/AuthLayout';
 import AuthForm from '@/components/auth/AuthForm';
+import { supabase } from '@/lib/supabase';
 
 function LoginContent() {
     const { user } = useStore();
     const router = useRouter();
     const searchParams = useSearchParams();
     const redirect = searchParams?.get('redirect') || '/dashboard';
+
+    // If we land on login with a pending MFA challenge from a prior attempt, clear it so the user can start fresh.
+    useEffect(() => {
+        if (user) return;
+        const state = useStore.getState();
+        if (state.mfaRequired || state.mfaChallengeId || state.mfaFactorId) {
+            supabase.auth.signOut().catch(() => {});
+            state.clearSession();
+        }
+    }, [user]);
 
     useEffect(() => {
         if (user) {
