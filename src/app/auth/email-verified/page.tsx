@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
@@ -13,13 +13,24 @@ function EmailVerifiedInner() {
     const [error, setError] = useState<string | null>(null);
     const hasRun = useRef(false);
 
+    const hashParams = useMemo(() => {
+        if (typeof window === 'undefined') return null;
+        const hash = window.location.hash.replace(/^#/, '');
+        return new URLSearchParams(hash);
+    }, []);
+
     useEffect(() => {
         if (hasRun.current) return;
         hasRun.current = true;
 
         const verifyEmail = async () => {
             const code = searchParams?.get('code');
+            const tokenHash = searchParams?.get('token_hash');
+            const type = searchParams?.get('type') || 'signup';
             const errorParam = searchParams?.get('error_description') || searchParams?.get('error');
+            // Supabase may also send tokens in hash for certain flows
+            const accessToken = hashParams?.get('access_token');
+            const refreshToken = hashParams?.get('refresh_token');
 
             if (errorParam) {
                 setError(errorParam);
@@ -27,32 +38,89 @@ function EmailVerifiedInner() {
                 return;
             }
 
-            if (!code) {
-                setError('Invalid verification link. Please request a new one.');
-                setStatus('error');
-                return;
+            let verified = false;
+
+            // Method 1: If we have tokens in hash (implicit flow), set session then sign out
+            if (accessToken && refreshToken) {
+                try {
+                    const { error: sessionError } = await supabase.auth.setSession({
+                        access_token: accessToken,
+                        refresh_token: refreshToken,
+                    });
+                    if (!sessionError) {
+                        verified = true;
+                        await supabase.auth.signOut();
+                    }
+                } catch {
+                    // Continue to try other methods
+                }
             }
 
-            try {
-                // Exchange the code to complete email verification
-                const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-                if (exchangeError) {
-                    throw new Error(exchangeError.message || 'Verification failed.');
+            // Method 2: If we have token_hash, verify via server-side API (works cross-device)
+            if (!verified && tokenHash) {
+                try {
+                    const res = await fetch('/api/auth/verify-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ token_hash: tokenHash, type }),
+                    });
+                    const data = await res.json();
+                    if (data.verified) {
+                        verified = true;
+                    } else if (data.alreadyUsed) {
+                        // Token was already used - email is verified, show success
+                        verified = true;
+                    }
+                } catch {
+                    // Continue to try other methods
                 }
+            }
 
-                // Immediately sign out - we don't want to create a session on this tab/device
-                // The original signup tab will detect verification via polling and handle login
-                await supabase.auth.signOut();
+            // Method 3: If we have a code, try PKCE exchange (works if same browser)
+            if (!verified && code) {
+                try {
+                    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+                    if (!exchangeError) {
+                        verified = true;
+                        await supabase.auth.signOut();
+                    }
+                } catch {
+                    // Code exchange failed - expected on different device
+                }
+            }
 
+            // Method 4: If code exchange failed, check if the email param indicates
+            // this user's email is now confirmed (the original tab's polling may have
+            // already detected and processed the verification)
+            const emailParam = searchParams?.get('email');
+            if (!verified && emailParam) {
+                try {
+                    const res = await fetch(`/api/auth/confirm-status?email=${encodeURIComponent(emailParam)}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.confirmed) {
+                            verified = true;
+                        }
+                    }
+                } catch {
+                    // Non-blocking
+                }
+            }
+
+            if (verified) {
                 setStatus('success');
-            } catch (err) {
-                setError(err instanceof Error ? err.message : 'Verification failed. Please try again.');
+            } else if (code || tokenHash) {
+                // We had a verification link but couldn't verify - likely expired or already used
+                setError('This verification link has expired or was already used. If you already verified your email, please sign in.');
+                setStatus('error');
+            } else {
+                setError('Invalid verification link. Please request a new one from the login page.');
                 setStatus('error');
             }
         };
 
         void verifyEmail();
-    }, [searchParams]);
+    }, [searchParams, hashParams]);
 
     if (status === 'verifying') {
         return (
@@ -76,14 +144,9 @@ function EmailVerifiedInner() {
                         <h1 className="text-2xl font-bold font-mono tracking-tight">Verification Failed</h1>
                         <p className="text-sm text-muted max-w-sm mx-auto">{error}</p>
                     </div>
-                    <div className="flex flex-col gap-3">
-                        <Link href="/signup">
-                            <Button variant="primary" className="w-full">Try Again</Button>
-                        </Link>
-                        <Link href="/login">
-                            <Button variant="ghost" className="w-full border border-white/10">Back to Login</Button>
-                        </Link>
-                    </div>
+                    <Link href="/login">
+                        <Button variant="primary" className="w-full">Go to Login</Button>
+                    </Link>
                 </div>
             </div>
         );
