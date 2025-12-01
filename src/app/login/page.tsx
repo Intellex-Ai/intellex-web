@@ -26,34 +26,25 @@ function LoginContent() {
     const redirect = searchParams?.get('redirect') || '/dashboard';
     const [isCheckingSession, setIsCheckingSession] = useState(true);
 
-    // If we land on login with MFA flags but no Supabase session, clear stale state so user can start fresh.
-    // This runs synchronously on mount to prevent showing stale MFA form.
+    // When landing on login page, ALWAYS clear any pending MFA state.
+    // If user navigated here (back button, direct URL, clicking login link), they're abandoning the MFA flow.
+    // MFA form should only appear AFTER a fresh login attempt triggers it, not on page load.
     useEffect(() => {
-        const checkAndClearStaleState = async () => {
-            if (user) {
-                setIsCheckingSession(false);
-                return;
-            }
+        const clearStaleStateAndCheck = async () => {
             const state = useStore.getState();
+            
+            // Always clear MFA state when landing on login page - user is starting fresh
             if (state.mfaRequired || state.mfaChallengeId || state.mfaFactorId) {
-                try {
-                    const { data } = await supabase.auth.getSession();
-                    const hasSession = Boolean(data?.session);
-                    if (!hasSession) {
-                        await supabase.auth.signOut().catch(() => {});
-                        clearMfaPendingCookie();
-                        state.clearSession();
-                    }
-                } catch {
-                    // On error, clear state to be safe
-                    clearMfaPendingCookie();
-                    state.clearSession();
-                }
+                clearMfaPendingCookie();
+                // Sign out to clear the partial session (authenticated but MFA not verified)
+                await supabase.auth.signOut().catch(() => {});
+                state.clearSession();
             }
+            
             setIsCheckingSession(false);
         };
-        checkAndClearStaleState();
-    }, [user]);
+        clearStaleStateAndCheck();
+    }, []); // Run once on mount, not dependent on user state
 
     useEffect(() => {
         if (user) {
