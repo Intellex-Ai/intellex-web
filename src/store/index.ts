@@ -123,7 +123,14 @@ export const useStore = create<AppState>()(persist((set, get) => ({
     timezone: 'UTC',
 
             login: async (email: string, password: string, name?: string, mode: 'login' | 'signup' = 'login'): Promise<boolean> => {
-                set({ isLoading: true });
+                set({
+                    isLoading: true,
+                    user: null,
+                    ...baseMfaState,
+                });
+                clearMfaVerified();
+                // Always clear the auth cookie before attempting a new login to avoid stale access.
+                setSessionCookie(false);
                 try {
                     if (!email || !password) {
                         throw new Error('Email and password are required');
@@ -247,12 +254,12 @@ export const useStore = create<AppState>()(persist((set, get) => ({
 
                     const supabaseUserId = authedUser?.user?.id;
                     // MFA gate: if a verified TOTP factor exists, start challenge and await code.
-                        const { data: factors } = await supabase.auth.mfa.listFactors();
-                        const verifiedTotp = factors?.totp?.find((f) => f.status === 'verified');
-                        if (verifiedTotp) {
-                            const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({
-                                factorId: verifiedTotp.id,
-                            });
+                    const { data: factors } = await supabase.auth.mfa.listFactors();
+                    const verifiedTotp = factors?.totp?.find((f) => f.status === 'verified');
+                    if (verifiedTotp) {
+                        const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({
+                            factorId: verifiedTotp.id,
+                        });
                         if (challengeError || !challenge?.id) {
                             throw challengeError || new Error('Unable to start MFA challenge.');
                         }
@@ -303,6 +310,8 @@ export const useStore = create<AppState>()(persist((set, get) => ({
 
             loginWithProvider: async (provider: 'google' | 'github', redirectPath = '/dashboard') => {
                 set({ isLoading: true, mfaRequired: false, mfaChallengeId: null, mfaFactorId: null });
+                clearMfaVerified();
+                setSessionCookie(false);
                 try {
                     const baseUrl = getSiteBaseUrl();
                     const origin = baseUrl || (typeof window !== 'undefined' ? window.location.origin : undefined);
@@ -348,14 +357,15 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                     }
                     const { data: refreshedSession } = await supabase.auth.getSession();
                     const accessToken = refreshedSession?.session?.access_token;
+                    // Mark this access token as fully verified before refreshing the user snapshot.
                     markMfaVerified(accessToken);
-                    // After successful MFA, refresh user and reset flags.
-                    await get().refreshUser();
                     set({
                         mfaRequired: false,
                         mfaChallengeId: null,
                         mfaFactorId: null,
                     });
+                    // After successful MFA, refresh user to hydrate the app state and cookie.
+                    await get().refreshUser();
                 } catch (err) {
                     throw err instanceof Error ? err : new Error('MFA verification failed');
                 } finally {
@@ -487,15 +497,17 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                     return { ...incoming, theme: normalizedTheme };
                 };
                 try {
-                    // Prime session first to avoid transient AuthSessionMissingError on reload.
+                    // Prime session first to avoid transient AuthSessionMissingError on reload, but do not set the app session cookie yet.
                     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
                     if (sessionError) {
                         console.error('Failed to get Supabase session', sessionError);
                         return;
                     }
                     const hasSession = Boolean(sessionData?.session);
-                    setSessionCookie(hasSession);
+                    // Default to no app session cookie until we confirm MFA status.
+                    setSessionCookie(false);
                     if (!hasSession) {
+                        clearMfaVerified();
                         set({
                             user: null,
                             mfaRequired: false,
@@ -522,34 +534,73 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                     }
 
                     // Enforce MFA even for OAuth sessions: if a verified TOTP factor exists, start a challenge and gate login.
-                    const { mfaRequired, mfaChallengeId } = get();
-                    if (!mfaRequired && !mfaChallengeId) {
-                        const { data: factors, error: listError } = await supabase.auth.mfa.listFactors();
-                        if (listError) {
-                            console.error('Failed to list MFA factors', listError);
-                        } else {
-                            const verifiedTotp = factors?.totp?.find((f) => f.status === 'verified');
-                            const alreadyVerified = readMfaVerified(accessToken);
-                    if (verifiedTotp && !alreadyVerified) {
+                    const { mfaRequired, mfaChallengeId, mfaFactorId } = get();
+                    const { data: factors, error: listError } = await supabase.auth.mfa.listFactors();
+                    if (listError) {
+                        console.error('Failed to list MFA factors', listError);
+                        if (mfaRequired || mfaChallengeId) {
+                            // Stay locked until we can conclusively determine MFA status.
+                            setSessionCookie(false);
+                            set({
+                                user: null,
+                                mfaRequired: true,
+                                mfaChallengeId,
+                                mfaFactorId,
+                            });
+                            return;
+                        }
+                    }
+
+                    const verifiedTotp = factors?.totp?.find((f) => f.status === 'verified');
+                    const alreadyVerified = readMfaVerified(accessToken);
+                    const needsMfa = Boolean(verifiedTotp) && !alreadyVerified;
+
+                    if (needsMfa) {
+                        // If we already have a challenge in progress for this factor, keep the gate up.
+                        if (mfaRequired && mfaChallengeId && mfaFactorId === verifiedTotp?.id) {
+                            setSessionCookie(false);
+                            set({
+                                user: null,
+                                mfaRequired: true,
+                                mfaChallengeId,
+                                mfaFactorId,
+                            });
+                            return;
+                        }
+
                         const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({
                             factorId: verifiedTotp.id,
                         });
                         if (challengeError || !challenge?.id) {
-                                    console.error('Unable to start MFA challenge', challengeError);
-                                } else {
-                                    // Clear session cookie until MFA completes to keep middleware from granting access.
-                                    setSessionCookie(false);
-                                    set({
-                                        ...baseMfaState,
-                                        mfaRequired: true,
-                                        mfaChallengeId: challenge.id,
-                                        mfaFactorId: verifiedTotp.id,
-                                        user: null,
-                                    });
-                                    return;
-                                }
-                            }
+                            console.error('Unable to start MFA challenge', challengeError);
+                            setSessionCookie(false);
+                            set({
+                                user: null,
+                                mfaRequired: true,
+                                mfaChallengeId: null,
+                                mfaFactorId: verifiedTotp.id,
+                            });
+                            return;
                         }
+                        // Clear session cookie until MFA completes to keep middleware from granting access.
+                        setSessionCookie(false);
+                        set({
+                            ...baseMfaState,
+                            mfaRequired: true,
+                            mfaChallengeId: challenge.id,
+                            mfaFactorId: verifiedTotp.id,
+                            user: null,
+                        });
+                        return;
+                    }
+
+                    // If MFA was previously required but the token is now verified, clear the gate flags.
+                    if ((mfaRequired || mfaChallengeId || mfaFactorId) && alreadyVerified) {
+                        set({
+                            mfaRequired: false,
+                            mfaChallengeId: null,
+                            mfaFactorId: null,
+                        });
                     }
 
                     try {

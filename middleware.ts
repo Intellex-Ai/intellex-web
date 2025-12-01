@@ -20,7 +20,9 @@ export function middleware(req: NextRequest) {
         return NextResponse.redirect(loginUrl);
     }
 
-    return NextResponse.next();
+    const res = NextResponse.next();
+    res.headers.set('Cache-Control', 'no-store');
+    return res;
 }
 
 export const config = {
