@@ -23,13 +23,20 @@ function AuthCallbackInner() {
             const code = searchParams?.get('code');
 
             // In some prod flows the Supabase session is already set (e.g., provider redirects without a code).
-            // If a session exists, short-circuit and proceed to the app.
+            // If a session exists, short-circuit and proceed to the app (after checking MFA).
             try {
                 const { data: sessionData } = await supabase.auth.getSession();
                 if (sessionData?.session && !code && !oauthError) {
-                    setStatus('complete');
                     await useStore.getState().refreshUser();
-                    router.replace(redirectTo);
+                    const { mfaRequired, user } = useStore.getState();
+                    setStatus('complete');
+                    if (mfaRequired) {
+                        router.replace(`/login?redirect=${encodeURIComponent(redirectTo)}`);
+                    } else if (user) {
+                        router.replace(redirectTo);
+                    } else {
+                        router.replace('/login');
+                    }
                     return;
                 }
             } catch {
@@ -52,8 +59,18 @@ function AuthCallbackInner() {
                     throw new Error(exchangeError.message || 'Unable to complete sign-in.');
                 }
                 await useStore.getState().refreshUser();
+                // Check if MFA is required before redirecting to protected routes
+                const { mfaRequired, user } = useStore.getState();
                 setStatus('complete');
-                router.replace(redirectTo);
+                if (mfaRequired) {
+                    // MFA is pending, redirect to login with the intended destination
+                    router.replace(`/login?redirect=${encodeURIComponent(redirectTo)}`);
+                } else if (user) {
+                    router.replace(redirectTo);
+                } else {
+                    // No user and no MFA - something went wrong, go to login
+                    router.replace('/login');
+                }
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Sign-in failed. Please try again.');
             }

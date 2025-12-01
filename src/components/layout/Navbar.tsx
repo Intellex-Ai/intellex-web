@@ -1,21 +1,18 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { Button } from '@/components/ui/Button';
 import { useStore } from '@/store';
-import { usePathname, useRouter } from 'next/navigation';
 import { useAuthSync } from '@/hooks/useAuthSync';
 import { UserMenu } from '@/components/layout/UserMenu';
 
 export default function Navbar() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const { user, logout, mfaRequired, mfaChallengeId } = useStore();
-    const router = useRouter();
-    const pathname = usePathname();
+    const { user, logout } = useStore();
     useAuthSync();
 
     const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
@@ -40,17 +37,6 @@ export default function Navbar() {
             }
         }
     };
-
-    // If MFA challenge is pending, route user to login only when they try to access protected app routes.
-    useEffect(() => {
-        if (!mfaRequired || !mfaChallengeId) return;
-        if (pathname === '/login' || pathname === '/signup' || pathname === '/') return;
-        const protectedPaths = ['/dashboard', '/projects', '/research', '/settings', '/profile'];
-        const isProtected = protectedPaths.some((p) => pathname.startsWith(p === '/' ? p : `/${p.replace(/^\//, '')}`));
-        if (!isProtected) return;
-        const target = pathname || '/dashboard';
-        router.replace(`/login?redirect=${encodeURIComponent(target)}`);
-    }, [mfaRequired, mfaChallengeId, pathname, router]);
 
     return (
         <nav className="fixed top-0 left-0 right-0 z-50 h-[80px] flex items-center border-b border-white/10 bg-black/80 backdrop-blur-md supports-[backdrop-filter]:bg-black/60">

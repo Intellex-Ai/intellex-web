@@ -7,6 +7,18 @@ import AuthLayout from '@/components/layout/AuthLayout';
 import AuthForm from '@/components/auth/AuthForm';
 import { supabase } from '@/lib/supabase';
 
+const MFA_PENDING_COOKIE = 'mfa_pending';
+
+const clearMfaPendingCookie = () => {
+    if (typeof document === 'undefined') return;
+    const siteDomain = process.env.NEXT_PUBLIC_SITE_URL
+        ? new URL(process.env.NEXT_PUBLIC_SITE_URL).hostname
+        : undefined;
+    const domainPart = siteDomain ? `; Domain=${siteDomain}` : '';
+    const securePart = typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : '';
+    document.cookie = `${MFA_PENDING_COOKIE}=; path=/; max-age=0; SameSite=Lax${domainPart}${securePart}`;
+};
+
 function LoginContent() {
     const { user } = useStore();
     const router = useRouter();
@@ -22,6 +34,7 @@ function LoginContent() {
                 const hasSession = Boolean(data?.session);
                 if (!hasSession) {
                     supabase.auth.signOut().catch(() => {});
+                    clearMfaPendingCookie();
                     state.clearSession();
                 }
             });
