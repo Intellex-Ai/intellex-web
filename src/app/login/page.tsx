@@ -13,13 +13,18 @@ function LoginContent() {
     const searchParams = useSearchParams();
     const redirect = searchParams?.get('redirect') || '/dashboard';
 
-    // If we land on login with a pending MFA challenge from a prior attempt, clear it so the user can start fresh.
+    // If we land on login with MFA flags but no Supabase session, clear stale state so user can start fresh.
     useEffect(() => {
         if (user) return;
         const state = useStore.getState();
         if (state.mfaRequired || state.mfaChallengeId || state.mfaFactorId) {
-            supabase.auth.signOut().catch(() => {});
-            state.clearSession();
+            supabase.auth.getSession().then(({ data }) => {
+                const hasSession = Boolean(data?.session);
+                if (!hasSession) {
+                    supabase.auth.signOut().catch(() => {});
+                    state.clearSession();
+                }
+            });
         }
     }, [user]);
 
