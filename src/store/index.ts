@@ -315,12 +315,19 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                         throw new Error('Unable to determine redirect URL. Please try again.');
                     }
 
+                    // For Google, use direct OAuth through our domain to show our app name on consent screen
+                    if (provider === 'google') {
+                        const googleAuthUrl = `${origin}/api/auth/google?redirect=${encodeURIComponent(redirectPath)}`;
+                        window.location.assign(googleAuthUrl);
+                        return;
+                    }
+
+                    // For other providers (GitHub), continue using Supabase OAuth
                     const redirectTo = `${origin}/auth/callback?redirect=${encodeURIComponent(redirectPath)}`;
                     const { data, error } = await supabase.auth.signInWithOAuth({
                         provider,
                         options: {
                             redirectTo,
-                            scopes: provider === 'google' ? 'email profile' : undefined,
                         },
                     });
                     if (error) {
