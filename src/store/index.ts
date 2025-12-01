@@ -189,7 +189,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                         if (!confirmed) {
                             const baseUrl = getSiteBaseUrl();
                             const redirectTo = baseUrl
-                                ? `${baseUrl}/auth/callback?email=${encodeURIComponent(email)}`
+                                ? `${baseUrl}/auth/email-verified`
                                 : undefined;
                             await supabase.auth.signOut().catch(() => {});
                             await supabase.auth
@@ -207,7 +207,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
 
                     const resendConfirmation = async () => {
                         const baseUrl = getSiteBaseUrl();
-                        const redirectTo = baseUrl ? `${baseUrl}/auth/callback?email=${encodeURIComponent(email)}` : undefined;
+                        const redirectTo = baseUrl ? `${baseUrl}/auth/email-verified` : undefined;
                         await supabase.auth.resend({
                             type: 'signup',
                             email,
@@ -227,7 +227,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                         } else {
                             const baseUrl = getSiteBaseUrl();
                             const redirectTo = baseUrl
-                                ? `${baseUrl}/auth/callback?email=${encodeURIComponent(email)}`
+                                ? `${baseUrl}/auth/email-verified`
                                 : undefined;
                             const { data, error } = await supabase.auth.signUp({
                                 email,
@@ -306,7 +306,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                         if (error.message?.toLowerCase().includes('email not confirmed')) {
                             const baseUrl = getSiteBaseUrl();
                             const redirectTo = baseUrl
-                                ? `${baseUrl}/auth/callback?email=${encodeURIComponent(email)}`
+                                ? `${baseUrl}/auth/email-verified`
                                 : undefined;
                             await supabase.auth.resend({
                                 type: 'signup',
