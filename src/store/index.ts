@@ -556,6 +556,16 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                     const needsMfa = Boolean(verifiedTotp) && !alreadyVerified;
 
                     if (needsMfa) {
+                        if (!verifiedTotp) {
+                            setSessionCookie(false);
+                            set({
+                                user: null,
+                                mfaRequired: true,
+                                mfaChallengeId: null,
+                                mfaFactorId: null,
+                            });
+                            return;
+                        }
                         // If we already have a challenge in progress for this factor, keep the gate up.
                         if (mfaRequired && mfaChallengeId && mfaFactorId === verifiedTotp?.id) {
                             setSessionCookie(false);
