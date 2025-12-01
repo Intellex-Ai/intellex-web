@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useStore } from '@/store';
 import AuthLayout from '@/components/layout/AuthLayout';
@@ -24,21 +24,35 @@ function LoginContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const redirect = searchParams?.get('redirect') || '/dashboard';
+    const [isCheckingSession, setIsCheckingSession] = useState(true);
 
     // If we land on login with MFA flags but no Supabase session, clear stale state so user can start fresh.
+    // This runs synchronously on mount to prevent showing stale MFA form.
     useEffect(() => {
-        if (user) return;
-        const state = useStore.getState();
-        if (state.mfaRequired || state.mfaChallengeId || state.mfaFactorId) {
-            supabase.auth.getSession().then(({ data }) => {
-                const hasSession = Boolean(data?.session);
-                if (!hasSession) {
-                    supabase.auth.signOut().catch(() => {});
+        const checkAndClearStaleState = async () => {
+            if (user) {
+                setIsCheckingSession(false);
+                return;
+            }
+            const state = useStore.getState();
+            if (state.mfaRequired || state.mfaChallengeId || state.mfaFactorId) {
+                try {
+                    const { data } = await supabase.auth.getSession();
+                    const hasSession = Boolean(data?.session);
+                    if (!hasSession) {
+                        await supabase.auth.signOut().catch(() => {});
+                        clearMfaPendingCookie();
+                        state.clearSession();
+                    }
+                } catch {
+                    // On error, clear state to be safe
                     clearMfaPendingCookie();
                     state.clearSession();
                 }
-            });
-        }
+            }
+            setIsCheckingSession(false);
+        };
+        checkAndClearStaleState();
     }, [user]);
 
     useEffect(() => {
@@ -47,6 +61,8 @@ function LoginContent() {
         }
     }, [user, router, redirect]);
 
+    // Prevent flash of MFA form while checking session
+    if (isCheckingSession) return null;
     if (user) return null; // Prevent flash of content
 
     return (
