@@ -28,13 +28,6 @@ export const LazySection: React.FC<LazySectionProps> = ({
         const element = ref.current;
         if (!element) return;
 
-        // Check if already in viewport on mount
-        const rect = element.getBoundingClientRect();
-        if (rect.top < window.innerHeight + 200) {
-            setIsVisible(true);
-            return;
-        }
-
         const observer = new IntersectionObserver(
             ([entry]) => {
                 if (entry.isIntersecting) {

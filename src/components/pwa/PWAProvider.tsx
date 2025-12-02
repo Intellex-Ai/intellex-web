@@ -7,7 +7,13 @@ import { OfflineIndicator } from "./OfflineIndicator";
 
 export function PWAProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+    const shouldRegister =
+      typeof window !== "undefined" &&
+      "serviceWorker" in navigator &&
+      process.env.NEXT_PUBLIC_DISABLE_PWA !== "true" &&
+      process.env.NODE_ENV === "production";
+
+    if (shouldRegister) {
       navigator.serviceWorker
         .register("/sw.js")
         .then((registration) => {

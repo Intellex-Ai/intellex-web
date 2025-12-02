@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useStore } from '@/store';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
@@ -26,7 +26,7 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
     const [awaitingVerification, setAwaitingVerification] = useState(false);
     const [verificationMessage, setVerificationMessage] = useState<string | null>(null);
     const router = useRouter();
-    const pollRef = useRef<NodeJS.Timeout | null>(null);
+    const pollRef = useRef<number | null>(null);
     const mfaInputRef = useRef<HTMLInputElement>(null);
 
     const { login, loginWithProvider, verifyMfa, mfaRequired, user } = useStore();
@@ -82,11 +82,15 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
         };
     }, [redirectDest, router]);
 
-    const startVerificationWatch = (targetEmail: string, pwd: string, providedName?: string) => {
+    const clearVerificationPoll = useCallback(() => {
         if (pollRef.current) {
             clearInterval(pollRef.current);
             pollRef.current = null;
         }
+    }, []);
+
+    const startVerificationWatch = (targetEmail: string, pwd: string, providedName?: string) => {
+        clearVerificationPoll();
         setAwaitingVerification(true);
         setVerificationMessage('Waiting for verification... check your inbox.');
 
@@ -97,10 +101,7 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
                 const data = (await res.json()) as { confirmed?: boolean };
                 if (data.confirmed) {
                     setVerificationMessage('Verified. Signing you in...');
-                    if (pollRef.current) {
-                        clearInterval(pollRef.current);
-                        pollRef.current = null;
-                    }
+                    clearVerificationPoll();
                     try {
                         const success = await login(targetEmail, pwd, providedName, 'login');
                         const nextMfa = useStore.getState().mfaRequired;
@@ -119,16 +120,14 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
         };
 
         poll();
-        pollRef.current = setInterval(poll, 4000);
+        pollRef.current = window.setInterval(poll, 4000);
     };
 
     useEffect(() => {
         return () => {
-            if (pollRef.current) {
-                clearInterval(pollRef.current);
-            }
+            clearVerificationPoll();
         };
-    }, []);
+    }, [clearVerificationPoll]);
 
     // Auto-focus MFA input on number keypress
     useEffect(() => {
@@ -208,15 +207,20 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
     const handleMfaChange = (value: string) => {
         // Strip non-digits to keep MFA input numeric only
         const digitsOnly = value.replace(/\D/g, '');
-        setMfaCode(digitsOnly);
+        setMfaCode(digitsOnly.slice(0, 6));
     };
 
     const handleVerifyMfa = async (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
         setError(null);
+        const trimmed = mfaCode.trim();
+        if (!trimmed || trimmed.length < 6) {
+            setError('Enter the 6-digit code to continue.');
+            return;
+        }
+        setLoading(true);
         try {
-            await verifyMfa(mfaCode.trim());
+            await verifyMfa(trimmed);
             setSessionCookie(true);
             setTimeout(() => router.replace(redirectDest), 100);
         } catch (err) {

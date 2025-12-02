@@ -92,9 +92,6 @@ export function useDevicePerformance(): DevicePerformance {
     const [performance, setPerformance] = useState<DevicePerformance>(() => getPerformanceLevel());
 
     useEffect(() => {
-        // Re-calculate on mount (SSR might have different values)
-        setPerformance(getPerformanceLevel());
-
         // Listen for reduced motion preference changes
         const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
         const handleChange = () => setPerformance(getPerformanceLevel());
