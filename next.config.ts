@@ -1,4 +1,11 @@
 import type { NextConfig } from "next";
+import withSerwistInit from "@serwist/next";
+
+const withSerwist = withSerwistInit({
+  swSrc: "src/app/sw.ts",
+  swDest: "public/sw.js",
+  disable: process.env.NODE_ENV === "development",
+});
 
 const apiHost = process.env.API_HOST || 'http://localhost';
 const apiPort = process.env.API_PORT || '8000';
@@ -22,6 +29,7 @@ const supabaseHost = supabaseUrl ? new URL(supabaseUrl).hostname : undefined;
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
+  turbopack: {},
   images: {
     formats: ['image/avif', 'image/webp'],
     remotePatterns: [
@@ -42,4 +50,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSerwist(nextConfig);

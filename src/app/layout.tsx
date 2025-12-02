@@ -1,9 +1,10 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import { RecoveryRedirect } from "@/components/auth/RecoveryRedirect";
+import { PWAProvider } from "@/components/pwa/PWAProvider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -17,9 +18,26 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
+export const viewport: Viewport = {
+  themeColor: "#ff4d00",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
+};
+
 export const metadata: Metadata = {
   title: "Intellex - AI-Powered Intelligence",
   description: "The next generation of intelligence gathering. Analyze, process, and deploy data with cinematic precision.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Intellex",
+  },
+  formatDetection: {
+    telephone: false,
+  },
   openGraph: {
     title: "Intellex - AI-Powered Intelligence",
     description: "The next generation of intelligence gathering.",
@@ -33,6 +51,15 @@ export const metadata: Metadata = {
     title: "Intellex - AI-Powered Intelligence",
     description: "The next generation of intelligence gathering.",
   },
+  icons: {
+    icon: [
+      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512x512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
 };
 
 export default function RootLayout({
@@ -43,10 +70,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} ${jetbrainsMono.variable} antialiased`} suppressHydrationWarning>
-        <RecoveryRedirect />
-        {children}
-        <Analytics />
-        <SpeedInsights />
+        <PWAProvider>
+          <RecoveryRedirect />
+          {children}
+          <Analytics />
+          <SpeedInsights />
+        </PWAProvider>
       </body>
     </html>
   );

@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff6600;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ff4d00;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="512" height="512" fill="#000000"/>
+  <!-- Border glow effect -->
+  <rect x="8" y="8" width="496" height="496" fill="none" stroke="#ff4d00" stroke-width="2" opacity="0.3"/>
+  <!-- Inner frame -->
+  <rect x="24" y="24" width="464" height="464" fill="none" stroke="#27272a" stroke-width="1"/>
+  <!-- Intellex "I" mark with cyber aesthetic -->
+  <g transform="translate(256, 256)">
+    <!-- Main vertical bar -->
+    <rect x="-40" y="-140" width="80" height="280" fill="url(#glow)"/>
+    <!-- Top horizontal -->
+    <rect x="-100" y="-140" width="200" height="24" fill="url(#glow)"/>
+    <!-- Bottom horizontal -->
+    <rect x="-100" y="116" width="200" height="24" fill="url(#glow)"/>
+    <!-- Accent lines -->
+    <rect x="-100" y="-160" width="200" height="4" fill="#ff4d00" opacity="0.5"/>
+    <rect x="-100" y="156" width="200" height="4" fill="#ff4d00" opacity="0.5"/>
+    <!-- Corner accents -->
+    <rect x="-120" y="-140" width="16" height="16" fill="#ff4d00" opacity="0.7"/>
+    <rect x="104" y="-140" width="16" height="16" fill="#ff4d00" opacity="0.7"/>
+    <rect x="-120" y="124" width="16" height="16" fill="#ff4d00" opacity="0.7"/>
+    <rect x="104" y="124" width="16" height="16" fill="#ff4d00" opacity="0.7"/>
+  </g>
+  <!-- Grid overlay for cyber effect -->
+  <g opacity="0.05">
+    <line x1="0" y1="128" x2="512" y2="128" stroke="#ff4d00" stroke-width="1"/>
+    <line x1="0" y1="256" x2="512" y2="256" stroke="#ff4d00" stroke-width="1"/>
+    <line x1="0" y1="384" x2="512" y2="384" stroke="#ff4d00" stroke-width="1"/>
+    <line x1="128" y1="0" x2="128" y2="512" stroke="#ff4d00" stroke-width="1"/>
+    <line x1="256" y1="0" x2="256" y2="512" stroke="#ff4d00" stroke-width="1"/>
+    <line x1="384" y1="0" x2="384" y2="512" stroke="#ff4d00" stroke-width="1"/>
+  </g>
+</svg>
