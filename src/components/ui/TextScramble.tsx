@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import { motion } from 'framer-motion';
 import { useDevicePerformance } from '@/hooks/useDevicePerformance';
 
 interface TextScrambleProps {
@@ -16,19 +17,20 @@ export const TextScramble: React.FC<TextScrambleProps> = ({
     duration = 2000,
     delay = 0
 }) => {
-    const [displayText, setDisplayText] = useState('');
+    const [visibleChars, setVisibleChars] = useState(0);
     const [isInView, setIsInView] = useState(false);
-    const [isComplete, setIsComplete] = useState(false);
     const elementRef = useRef<HTMLSpanElement>(null);
-    const { isLowEnd, prefersReducedMotion } = useDevicePerformance();
+    const { isLowEnd, prefersReducedMotion, level } = useDevicePerformance();
 
-    // For low-end devices or reduced motion, show text immediately
-    const shouldAnimate = useMemo(() => !isLowEnd && !prefersReducedMotion, [isLowEnd, prefersReducedMotion]);
+    // Skip animation for low-end devices or reduced motion preference
+    const shouldAnimate = !isLowEnd && !prefersReducedMotion;
+    
+    // Use blur effect only on high-end devices
+    const useBlur = level === 'high';
 
     useEffect(() => {
         if (!shouldAnimate) {
-            setDisplayText(text);
-            setIsComplete(true);
+            setVisibleChars(text.length);
             return;
         }
 
@@ -47,58 +49,33 @@ export const TextScramble: React.FC<TextScrambleProps> = ({
         }
 
         return () => observer.disconnect();
-    }, [isInView, shouldAnimate, text]);
+    }, [isInView, shouldAnimate, text.length]);
 
     useEffect(() => {
         if (!shouldAnimate || !isInView) return;
 
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_';
         const totalChars = text.length;
-        const charRevealTime = duration / totalChars;
-        let currentIndex = 0;
-        let scrambleInterval: NodeJS.Timeout;
-        let revealTimeout: NodeJS.Timeout;
+        const charDelay = duration / totalChars;
 
-        const startAnimation = () => {
-            // Scramble effect - update random characters
-            scrambleInterval = setInterval(() => {
-                let result = '';
-                for (let i = 0; i < totalChars; i++) {
-                    if (i < currentIndex) {
-                        result += text[i];
-                    } else {
-                        result += chars[Math.floor(Math.random() * chars.length)];
-                    }
+        const timeout = setTimeout(() => {
+            let currentChar = 0;
+            const interval = setInterval(() => {
+                currentChar++;
+                setVisibleChars(currentChar);
+
+                if (currentChar >= totalChars) {
+                    clearInterval(interval);
                 }
-                setDisplayText(result);
-            }, 50); // Update scramble every 50ms
+            }, charDelay);
 
-            // Reveal characters one by one
-            const revealNext = () => {
-                if (currentIndex >= totalChars) {
-                    clearInterval(scrambleInterval);
-                    setDisplayText(text);
-                    setIsComplete(true);
-                    return;
-                }
-                currentIndex++;
-                revealTimeout = setTimeout(revealNext, charRevealTime);
-            };
+            return () => clearInterval(interval);
+        }, delay);
 
-            revealTimeout = setTimeout(revealNext, charRevealTime);
-        };
-
-        const delayTimeout = setTimeout(startAnimation, delay);
-
-        return () => {
-            clearTimeout(delayTimeout);
-            clearTimeout(revealTimeout);
-            clearInterval(scrambleInterval);
-        };
+        return () => clearTimeout(timeout);
     }, [isInView, text, duration, delay, shouldAnimate]);
 
-    // For reduced motion or low-end, render plain text
-    if (!shouldAnimate || isComplete) {
+    // For low-end or reduced motion, render plain text immediately
+    if (!shouldAnimate) {
         return (
             <span ref={elementRef} className={className}>
                 {text}
@@ -107,15 +84,25 @@ export const TextScramble: React.FC<TextScrambleProps> = ({
     }
 
     return (
-        <span 
-            ref={elementRef} 
-            className={className}
-            style={{ 
-                display: 'inline-block',
-                minWidth: `${text.length}ch`,
-            }}
-        >
-            {displayText || text.replace(/./g, '_')}
+        <span ref={elementRef} className={className}>
+            {text.split('').map((char, index) => (
+                <motion.span
+                    key={index}
+                    initial={{ opacity: 0, filter: useBlur ? 'blur(8px)' : 'none' }}
+                    animate={
+                        index < visibleChars
+                            ? { opacity: 1, filter: 'blur(0px)' }
+                            : { opacity: 0, filter: useBlur ? 'blur(8px)' : 'none' }
+                    }
+                    transition={{
+                        duration: useBlur ? 0.3 : 0.15,
+                        ease: [0.23, 1, 0.32, 1],
+                    }}
+                    style={{ display: 'inline-block' }}
+                >
+                    {char === ' ' ? '\u00A0' : char}
+                </motion.span>
+            ))}
         </span>
     );
 };
