@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/Input';
 import { Mail, Lock, Github, User as UserIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthSync } from '@/hooks/useAuthSync';
+import { setSessionCookie } from '@/lib/cookies';
 
 
 interface AuthFormProps {
@@ -37,7 +38,9 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
     // When user state changes (e.g., from useAuthSync detecting a session), redirect to dashboard
     useEffect(() => {
         if (user && !mfaRequired) {
-            router.replace(redirectDest);
+            setSessionCookie(true);
+            // Small delay to ensure cookie is processed before navigation
+            setTimeout(() => router.replace(redirectDest), 100);
         }
     }, [user, mfaRequired, router, redirectDest]);
 
@@ -55,7 +58,8 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
             if (!active) return;
             const refreshedUser = useStore.getState().user;
             if (refreshedUser) {
-                router.replace(redirectDest);
+                setSessionCookie(true);
+                setTimeout(() => router.replace(redirectDest), 100);
             }
         };
 
@@ -100,7 +104,8 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
                         const success = await login(targetEmail, pwd, providedName, 'login');
                         const nextMfa = useStore.getState().mfaRequired;
                         if (success && !nextMfa) {
-                            router.push(redirectDest);
+                            setSessionCookie(true);
+                            setTimeout(() => router.push(redirectDest), 100);
                         }
                     } catch (err) {
                         setError(err instanceof Error ? err.message : 'Sign-in after verification failed.');
@@ -156,7 +161,8 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
             const success = await login(userEmail, safePassword, displayName, type);
             const nextMfa = useStore.getState().mfaRequired;
             if (success && !nextMfa) {
-                router.push(redirectDest);
+                setSessionCookie(true);
+                setTimeout(() => router.push(redirectDest), 100);
             }
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : 'An unknown error occurred';
@@ -178,7 +184,8 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
         setError(null);
         try {
             await verifyMfa(mfaCode.trim());
-            router.replace(redirectDest);
+            setSessionCookie(true);
+            setTimeout(() => router.replace(redirectDest), 100);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to verify MFA code');
         } finally {

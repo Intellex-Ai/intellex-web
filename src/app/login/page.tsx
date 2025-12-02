@@ -6,7 +6,7 @@ import { useStore } from '@/store';
 import AuthLayout from '@/components/layout/AuthLayout';
 import AuthForm from '@/components/auth/AuthForm';
 import { supabase } from '@/lib/supabase';
-import { clearMfaPendingCookie } from '@/lib/cookies';
+import { clearMfaPendingCookie, setSessionCookie } from '@/lib/cookies';
 
 function LoginContent() {
     const { user } = useStore();
@@ -45,7 +45,8 @@ function LoginContent() {
 
     useEffect(() => {
         if (user) {
-            router.push(redirect);
+            setSessionCookie(true);
+            setTimeout(() => router.push(redirect), 100);
         }
     }, [user, router, redirect]);
 
