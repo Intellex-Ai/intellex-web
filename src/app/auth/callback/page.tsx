@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { useStore } from '@/store';
+import { setSessionCookie } from '@/lib/cookies';
 
 function AuthCallbackInner() {
     const router = useRouter();
@@ -33,6 +34,8 @@ function AuthCallbackInner() {
                     if (mfaRequired) {
                         router.replace(`/login?redirect=${encodeURIComponent(redirectTo)}&mfa=pending`);
                     } else if (user) {
+                        setSessionCookie(true);
+                        await new Promise(resolve => setTimeout(resolve, 100));
                         router.replace(redirectTo);
                     } else {
                         router.replace('/login');
@@ -66,6 +69,8 @@ function AuthCallbackInner() {
                     // MFA is pending, redirect to login with the intended destination
                     router.replace(`/login?redirect=${encodeURIComponent(redirectTo)}&mfa=pending`);
                 } else if (user) {
+                    setSessionCookie(true);
+                    await new Promise(resolve => setTimeout(resolve, 100));
                     router.replace(redirectTo);
                 } else {
                     // No user and no MFA - something went wrong, go to login
