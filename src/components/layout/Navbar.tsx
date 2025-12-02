@@ -9,10 +9,12 @@ import { Button } from '@/components/ui/Button';
 import { useStore } from '@/store';
 import { useAuthSync } from '@/hooks/useAuthSync';
 import { UserMenu } from '@/components/layout/UserMenu';
+import { useDevicePerformance } from '@/hooks/useDevicePerformance';
 
 export default function Navbar() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const { user, logout } = useStore();
+    const { isLowEnd } = useDevicePerformance();
     useAuthSync();
 
     const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
@@ -38,8 +40,12 @@ export default function Navbar() {
         }
     };
 
+    const navClasses = isLowEnd 
+        ? "fixed top-0 left-0 right-0 z-50 h-[80px] flex items-center border-b border-white/10 bg-black/95"
+        : "fixed top-0 left-0 right-0 z-50 h-[80px] flex items-center border-b border-white/10 bg-black/80 backdrop-blur-md supports-[backdrop-filter]:bg-black/60";
+
     return (
-        <nav className="fixed top-0 left-0 right-0 z-50 h-[80px] flex items-center border-b border-white/10 bg-black/80 backdrop-blur-md supports-[backdrop-filter]:bg-black/60">
+        <nav className={navClasses}>
             <div className="w-full m-0 px-4 lg:px-12 flex items-center justify-between h-full max-w-[1400px] mx-auto">
                 <Link href="/" className="font-mono text-2xl font-black text-white tracking-tighter uppercase flex items-center gap-2 transition-opacity hover:opacity-80">
                     <span className="text-primary">{'///'}</span> INTELLEX
