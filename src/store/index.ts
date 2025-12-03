@@ -663,8 +663,14 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                             }
                         }
 
-                        // Fallback: backend auth/me (service role)
-                        const latest = await AuthService.current(authUser.email || undefined);
+                        // Fallback: backend auth/me (service role) with auth id guard.
+                        const latest = await AuthService.current({
+                            email: authUser.email || undefined,
+                            userId: authUser.id,
+                        });
+                        if (latest && latest.id !== authUser.id) {
+                            throw new Error('Auth/profile mismatch');
+                        }
                         set({ user: latest });
                         setMfaPendingCookie(false);
                         setSessionCookie(Boolean(latest));
@@ -683,6 +689,9 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                             .returns<ProfileRow[]>();
                         if (!profileError && profiles && profiles.length > 0) {
                             const profile = profiles[0];
+                            if (profile.id !== authUser.id) {
+                                throw new Error('Auth/profile mismatch');
+                            }
                             set({
                                 user: {
                                     id: profile.id,
