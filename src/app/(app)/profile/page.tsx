@@ -41,8 +41,9 @@ export default function ProfilePage() {
     // Keep local form data in sync when the persisted user hydrates or updates.
     useEffect(() => {
         if (user) {
+            const initialName = user.name && user.name.toLowerCase() !== (user.email || '').toLowerCase() ? user.name : '';
             setFormData({
-                name: user.name || '',
+                name: initialName,
                 email: user.email || '',
                 avatarUrl: user.avatarUrl || '',
                 title: user.preferences?.title || '',
@@ -65,8 +66,8 @@ export default function ProfilePage() {
                 (meta.display_name as string) ||
                 (meta.full_name as string) ||
                 (meta.name as string) ||
-                (authUser.email ?? '');
-            if (!displayName) return;
+                '';
+            if (!displayName.trim()) return;
             setFormData((prev) => ({
                 ...prev,
                 name: prev.name || displayName,
