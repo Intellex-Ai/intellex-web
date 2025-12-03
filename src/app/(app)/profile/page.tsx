@@ -2,20 +2,27 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { useStore } from '@/store';
-import { User, Mail, CreditCard, BarChart3, Edit2, Save, CheckCircle2, Briefcase, Building2, MapPin, FileText, Shield } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { User, Mail, CreditCard, BarChart3, Edit2, Save, CheckCircle2, Briefcase, Building2, MapPin, FileText, Shield, Trash2 } from 'lucide-react';
 import { TextScramble } from '@/components/ui/TextScramble';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { MfaSetup } from '@/components/auth/MfaSetup';
+import { AuthService } from '@/services/api/auth';
+import { supabase } from '@/lib/supabase';
 
 export default function ProfilePage() {
-    const { user, refreshUser } = useStore();
+    const router = useRouter();
+    const { user, refreshUser, logout } = useStore();
     const [isEditing, setIsEditing] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [avatarUploading, setAvatarUploading] = useState(false);
     const [profileStatus, setProfileStatus] = useState<string | null>(null);
     const [profileError, setProfileError] = useState<string | null>(null);
     const [pendingInfo, setPendingInfo] = useState<{ emailConfirmed?: boolean; lastSignIn?: string | null } | null>(null);
+    const [deleteError, setDeleteError] = useState<string | null>(null);
+    const [deleteConfirm, setDeleteConfirm] = useState('');
+    const [isDeleting, setIsDeleting] = useState(false);
     const [formData, setFormData] = useState({
         name: user?.name || '',
         email: user?.email || '',
@@ -127,6 +134,40 @@ export default function ProfilePage() {
             setProfileError(message);
         } finally {
             setAvatarUploading(false);
+        }
+    };
+
+    const handleDeleteAccount = async () => {
+        if (!user) {
+            setDeleteError('No user session found.');
+            return;
+        }
+        setIsDeleting(true);
+        setDeleteError(null);
+        try {
+            const { data } = await supabase.auth.getUser();
+            const supabaseUserId = data?.user?.id;
+            if (!supabaseUserId) {
+                throw new Error('Missing Supabase auth session. Please re-login and try again.');
+            }
+
+            const result = await AuthService.deleteAccount({
+                userId: user.id,
+                email: user.email,
+                supabaseUserId,
+            });
+
+            if (!result.deleted) {
+                throw new Error('Account deletion failed. Please try again.');
+            }
+
+            await logout();
+            router.replace('/');
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to delete account';
+            setDeleteError(message);
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -460,6 +501,41 @@ export default function ProfilePage() {
                                     <h2 className="text-lg font-bold text-white uppercase tracking-wide font-mono">Security</h2>
                                 </div>
                                 <MfaSetup onComplete={refreshUser} />
+                            </section>
+
+                            <section className="animate-in fade-in slide-in-from-bottom-4 fill-mode-backwards" style={{ animationDelay: '300ms' }}>
+                                <div className="flex items-center gap-3 mb-4 pb-2 border-b border-error/40">
+                                    <Trash2 size={20} className="text-error" />
+                                    <h2 className="text-lg font-bold text-error uppercase tracking-wide font-mono">Danger_Zone</h2>
+                                </div>
+                                <div className="bg-gradient-to-r from-error/10 via-black to-black border border-error/30 p-4 rounded-sm space-y-3">
+                                    <p className="text-xs text-muted font-mono leading-relaxed">
+                                        Permanently delete your profile, projects, plans, and messages. This action cannot be undone.
+                                    </p>
+                                    <div className="space-y-2">
+                                        <Input
+                                            value={deleteConfirm}
+                                            onChange={(e) => setDeleteConfirm(e.target.value)}
+                                            placeholder="Type DELETE to confirm"
+                                            className="font-mono bg-black/40 border-error/40 text-error placeholder:text-error/60"
+                                        />
+                                        {deleteError && (
+                                            <div className="p-2 rounded-sm border border-error/40 bg-error/10 text-error text-[11px] font-mono">
+                                                {deleteError}
+                                            </div>
+                                        )}
+                                        <Button
+                                            variant="danger"
+                                            className="w-full"
+                                            disabled={deleteConfirm.trim().toUpperCase() !== 'DELETE' || isDeleting}
+                                            isLoading={isDeleting}
+                                            leftIcon={<Trash2 size={14} />}
+                                            onClick={handleDeleteAccount}
+                                        >
+                                            Delete Account
+                                        </Button>
+                                    </div>
+                                </div>
                             </section>
                         </div>
                     </div>
