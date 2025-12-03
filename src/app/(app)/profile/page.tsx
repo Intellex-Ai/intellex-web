@@ -162,6 +162,10 @@ export default function ProfilePage() {
             }
 
             await logout();
+            // Clear any persisted store snapshot to avoid showing stale data on next load.
+            if (typeof window !== 'undefined') {
+                window.localStorage.removeItem('zustand-persist:intellex-store');
+            }
             router.replace('/');
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Failed to delete account';

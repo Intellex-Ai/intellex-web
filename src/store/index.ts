@@ -18,6 +18,7 @@ type ProfileRow = {
 };
 
 const MFA_VERIFIED_KEY = 'intellex:mfa-verified';
+const STORE_KEY = 'intellex-store';
 const baseMfaState = {
     mfaRequired: false,
     mfaChallengeId: null as string | null,
@@ -63,6 +64,14 @@ const clearMfaVerified = () => {
     if (typeof window === 'undefined') return;
     try {
         window.localStorage.removeItem(MFA_VERIFIED_KEY);
+    } catch {
+        // non-blocking
+    }
+};
+const clearPersistedStore = () => {
+    if (typeof window === 'undefined') return;
+    try {
+        window.localStorage.removeItem(`zustand-persist:${STORE_KEY}`);
     } catch {
         // non-blocking
     }
@@ -390,6 +399,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                 setSessionCookie(false);
                 setMfaPendingCookie(false);
                 clearMfaVerified();
+                clearPersistedStore();
                 clearAuthState(set);
             },
 
