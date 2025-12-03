@@ -39,6 +39,7 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
     // When user state changes (e.g., from useAuthSync detecting a session), redirect to dashboard
     useEffect(() => {
         if (user && !mfaRequired) {
+            setError(null); // Clear any transient API/login error once we have a valid session.
             setSessionCookie(true);
             // Small delay to ensure cookie is processed before navigation
             setTimeout(() => router.replace(redirectDest), 100);
