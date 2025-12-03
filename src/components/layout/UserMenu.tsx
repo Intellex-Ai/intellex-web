@@ -50,7 +50,7 @@ export function UserMenu({ user, onLogout, items = defaultItems }: UserMenuProps
                     )}
                 </div>
                 <span className="font-mono text-sm uppercase tracking-wide hidden xl:inline">
-                    {user.name || user.email}
+                    {user.name || ''}
                 </span>
             </button>
             {open && (
