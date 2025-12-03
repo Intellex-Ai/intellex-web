@@ -53,6 +53,28 @@ export default function ProfilePage() {
         }
     }, [user]);
 
+    // If the profile name is empty, hydrate it from Supabase auth metadata (useful right after OAuth signup).
+    useEffect(() => {
+        if (formData.name.trim()) return;
+        const loadAuthName = async () => {
+            const { data } = await supabase.auth.getUser();
+            const authUser = data?.user;
+            if (!authUser) return;
+            const meta = (authUser.user_metadata as Record<string, unknown>) || {};
+            const displayName =
+                (meta.display_name as string) ||
+                (meta.full_name as string) ||
+                (meta.name as string) ||
+                (authUser.email ?? '');
+            if (!displayName) return;
+            setFormData((prev) => ({
+                ...prev,
+                name: prev.name || displayName,
+            }));
+        };
+        void loadAuthName();
+    }, [formData.name]);
+
     const handleSave = async () => {
         setIsLoading(true);
         setProfileError(null);
