@@ -10,7 +10,6 @@ import { Input } from '@/components/ui/Input';
 import { MfaSetup } from '@/components/auth/MfaSetup';
 import { AuthService } from '@/services/api/auth';
 import { supabase } from '@/lib/supabase';
-import { useStore as zustandStore } from '@/store';
 
 export default function ProfilePage() {
     const router = useRouter();
@@ -42,9 +41,8 @@ export default function ProfilePage() {
     // Keep local form data in sync when the persisted user hydrates or updates.
     useEffect(() => {
         if (user) {
-            const initialName = user.name && user.name.toLowerCase() !== (user.email || '').toLowerCase() ? user.name : '';
             setFormData({
-                name: initialName,
+                name: user.name || '',
                 email: user.email || '',
                 avatarUrl: user.avatarUrl || '',
                 title: user.preferences?.title || '',
@@ -70,19 +68,11 @@ export default function ProfilePage() {
                 '';
             if (!displayName.trim()) return;
 
-            // Update local form.
+            // Update local form if missing name.
             setFormData((prev) => ({
                 ...prev,
                 name: prev.name || displayName,
             }));
-
-            // Update global store user so sidebar/header reflect the OAuth name immediately.
-            const current = zustandStore.getState().user;
-            if (current && (!current.name || current.name.toLowerCase() === (current.email || '').toLowerCase())) {
-                zustandStore.setState({
-                    user: { ...current, name: displayName },
-                });
-            }
         };
         void loadAuthName();
     }, [formData.name]);

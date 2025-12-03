@@ -641,86 +641,86 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                     }
 
                     try {
-                        // Prefer canonical profile via service-role proxy to include avatar.
-                        const profileRes = await fetch(`/api/profile?email=${encodeURIComponent(authUser.email ?? '')}`);
-                        if (profileRes.ok) {
-                            const data = await profileRes.json();
-                            const profile = (data?.user as ProfileRow | null) ?? null;
-                            if (profile) {
-                                set({
-                                    user: {
-                                        id: profile.id,
-                                        email: profile.email,
-                                        name: profile.name ?? profile.email ?? '',
-                                        avatarUrl: profile.avatar_url ?? undefined,
-                                        preferences: normalizePreferences(profile.preferences),
-                                    },
-                                });
-                                setMfaPendingCookie(false);
-                                setSessionCookie(true);
-                                markMfaVerified(accessToken);
-                                return;
-                            }
-                        }
-
-                        // Fallback: backend auth/me (service role) with auth id guard.
-                        const latest = await AuthService.current({
-                            email: authUser.email || undefined,
-                            userId: authUser.id,
+                // Prefer canonical profile via service-role proxy to include avatar.
+                const profileRes = await fetch(`/api/profile?email=${encodeURIComponent(authUser.email ?? '')}`);
+                if (profileRes.ok) {
+                    const data = await profileRes.json();
+                    const profile = (data?.user as ProfileRow | null) ?? null;
+                    if (profile) {
+                        const safeName = profile.name || '';
+                        set({
+                            user: {
+                                id: profile.id,
+                                email: profile.email,
+                                name: safeName,
+                                avatarUrl: profile.avatar_url ?? undefined,
+                                preferences: normalizePreferences(profile.preferences),
+                            },
                         });
-                        if (latest && latest.id !== authUser.id) {
-                            throw new Error('Auth/profile mismatch');
-                        }
-                        set({ user: latest });
                         setMfaPendingCookie(false);
-                        setSessionCookie(Boolean(latest));
-                        if (latest) {
-                            markMfaVerified(accessToken);
-                        }
+                        setSessionCookie(true);
+                        markMfaVerified(accessToken);
+                        return;
+                    }
+                }
+
+                // Fallback: backend auth/me (service role) with auth id guard.
+                const latest = await AuthService.current({
+                    email: authUser.email || undefined,
+                    userId: authUser.id,
+                });
+                if (latest && latest.id !== authUser.id) {
+                    throw new Error('Auth/profile mismatch');
+                }
+                set({ user: latest ? { ...latest, name: latest.name || '' } : null });
+                setMfaPendingCookie(false);
+                setSessionCookie(Boolean(latest));
+                if (latest) {
+                    markMfaVerified(accessToken);
+                }
                     } catch (apiError) {
                         console.warn('Auth API current() failed, trying direct Supabase profile', apiError);
 
                         // Second try: direct Supabase profile (RLS must allow).
-                        const { data: profiles, error: profileError } = await supabase
-                            .from('users')
-                            .select('id, email, name, avatar_url, preferences')
-                            .eq('email', authUser.email ?? '')
-                            .limit(1)
-                            .returns<ProfileRow[]>();
-                        if (!profileError && profiles && profiles.length > 0) {
-                            const profile = profiles[0];
-                            if (profile.id !== authUser.id) {
-                                throw new Error('Auth/profile mismatch');
-                            }
-                            set({
-                                user: {
-                                    id: profile.id,
-                                    email: profile.email,
-                                    name: profile.name ?? profile.email ?? '',
-                                    avatarUrl: profile.avatar_url ?? undefined,
-                                    preferences: normalizePreferences(profile.preferences),
-                                },
-                            });
-                            setMfaPendingCookie(false);
-                            setSessionCookie(true);
-                            markMfaVerified(accessToken);
-                            return;
-                        }
+                const { data: profiles, error: profileError } = await supabase
+                    .from('users')
+                    .select('id, email, name, avatar_url, preferences')
+                    .eq('email', authUser.email ?? '')
+                    .limit(1)
+                    .returns<ProfileRow[]>();
+                if (!profileError && profiles && profiles.length > 0) {
+                    const profile = profiles[0];
+                    if (profile.id !== authUser.id) {
+                        throw new Error('Auth/profile mismatch');
+                    }
+                    set({
+                        user: {
+                            id: profile.id,
+                            email: profile.email,
+                            name: profile.name || '',
+                            avatarUrl: profile.avatar_url ?? undefined,
+                            preferences: normalizePreferences(profile.preferences),
+                        },
+                    });
+                    setMfaPendingCookie(false);
+                    setSessionCookie(true);
+                    markMfaVerified(accessToken);
+                    return;
+                }
 
                         // Last fallback: Supabase auth metadata.
-                        console.warn('Supabase profile fallback in use', profileError);
-                        set({
-                            user: {
-                                id: authUser.id,
-                                email: authUser.email ?? '',
-                                name:
-                                    (authUser.user_metadata as Record<string, unknown>)?.display_name as string ||
-                                    authUser.email ||
+                    console.warn('Supabase profile fallback in use', profileError);
+                    set({
+                        user: {
+                            id: authUser.id,
+                            email: authUser.email ?? '',
+                            name:
+                                    ((authUser.user_metadata as Record<string, unknown>)?.display_name as string) ||
                                     '',
-                                avatarUrl: undefined,
-                                preferences: { theme: 'system' },
-                            },
-                        });
+                            avatarUrl: undefined,
+                            preferences: { theme: 'system' },
+                        },
+                    });
                         setMfaPendingCookie(false);
                         setSessionCookie(true);
                         markMfaVerified(accessToken);
