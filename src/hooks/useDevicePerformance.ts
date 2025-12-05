@@ -17,16 +17,18 @@ interface NavigatorWithMemory extends Navigator {
     deviceMemory?: number;
 }
 
+const DEFAULT_PERFORMANCE: DevicePerformance = {
+    level: 'medium',
+    prefersReducedMotion: false,
+    deviceMemory: null,
+    hardwareConcurrency: null,
+    isLowEnd: false,
+    isMobile: false,
+};
+
 const getPerformanceLevel = (): DevicePerformance => {
     if (typeof window === 'undefined') {
-        return {
-            level: 'medium',
-            prefersReducedMotion: false,
-            deviceMemory: null,
-            hardwareConcurrency: null,
-            isLowEnd: false,
-            isMobile: false,
-        };
+        return DEFAULT_PERFORMANCE;
     }
 
     const nav = navigator as NavigatorWithMemory;
@@ -89,17 +91,21 @@ const getPerformanceLevel = (): DevicePerformance => {
 };
 
 export function useDevicePerformance(): DevicePerformance {
-    const [performance, setPerformance] = useState<DevicePerformance>(() => getPerformanceLevel());
+    // Defer browser-specific checks until after hydration to avoid SSR/client mismatches
+    const [performance, setPerformance] = useState<DevicePerformance>(DEFAULT_PERFORMANCE);
 
     useEffect(() => {
+        const update = () => setPerformance(getPerformanceLevel());
+        update();
+
         // Listen for reduced motion preference changes
         const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-        const handleChange = () => setPerformance(getPerformanceLevel());
+        const handleChange = () => update();
         
         mediaQuery.addEventListener('change', handleChange);
         
         // Also re-check on resize (for mobile detection)
-        const handleResize = () => setPerformance(getPerformanceLevel());
+        const handleResize = () => update();
         window.addEventListener('resize', handleResize);
 
         return () => {
