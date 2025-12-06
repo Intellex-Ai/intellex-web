@@ -57,6 +57,8 @@ const nextConfig: NextConfig = {
       supabaseHost
         ? { protocol: 'https', hostname: supabaseHost, pathname: '/**' }
         : { protocol: 'https', hostname: '*.supabase.co', pathname: '/**' },
+      { protocol: 'https', hostname: 'lh3.googleusercontent.com', pathname: '/**' },
+      { protocol: 'https', hostname: 'avatars.githubusercontent.com', pathname: '/**' },
     ],
   },
   async rewrites() {
