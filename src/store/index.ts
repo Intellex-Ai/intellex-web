@@ -705,6 +705,33 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                         console.warn('Supabase profile query failed', fallbackError);
                     }
 
+                    // Attempt backend provisioning via AuthService if no profile exists yet.
+                    try {
+                        if (authUser.email) {
+                            const provisioned = await AuthService.login(
+                                authUser.email,
+                                authProfile.name || (authUser.email.includes('@') ? authUser.email.split('@')[0] : authUser.email),
+                                authUser.id,
+                            );
+                            if (provisioned) {
+                                set({
+                                    user: {
+                                        ...provisioned,
+                                        name: provisioned.name || authProfile.name || '',
+                                        avatarUrl: provisioned.avatarUrl || authProfile.avatarUrl,
+                                    },
+                                });
+                                setMfaPendingCookie(false);
+                                setSessionCookie(true);
+                                markMfaVerified(accessToken);
+                                return;
+                            }
+                        }
+                    } catch (provisionError) {
+                        profileErrorNote = profileErrorNote || provisionError;
+                        console.warn('Provision fallback failed', provisionError);
+                    }
+
                     // Last fallback: Supabase auth metadata.
                     if (profileErrorNote) {
                         console.warn('Supabase profile fallback in use', profileErrorNote);
