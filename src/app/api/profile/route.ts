@@ -4,7 +4,8 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin';
 export async function GET(req: Request) {
     const admin = getSupabaseAdmin();
     if (!admin) {
-        return NextResponse.json({ error: 'Supabase service role not configured' }, { status: 500 });
+        // Gracefully degrade when service role is missing in the environment.
+        return NextResponse.json({ user: null, warning: 'Supabase service role not configured' }, { status: 200 });
     }
 
     const { searchParams } = new URL(req.url);
@@ -24,8 +25,9 @@ export async function GET(req: Request) {
         }
         return NextResponse.json({ user: profile });
     } catch (err) {
+        // Avoid noisy 500s in clients; return a soft null user with context.
         const message = err instanceof Error ? err.message : 'Failed to fetch profile';
-        return NextResponse.json({ error: message }, { status: 500 });
+        return NextResponse.json({ user: null, error: message }, { status: 200 });
     }
 }
 

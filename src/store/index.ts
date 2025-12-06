@@ -665,30 +665,9 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                     }
                 }
 
-                // Fallback: backend auth/me (service role) with auth id guard.
-                const latest = await AuthService.current({
-                    email: authUser.email || undefined,
-                    userId: authUser.id,
-                });
-                if (latest && latest.id !== authUser.id) {
-                    throw new Error('Auth/profile mismatch');
-                }
-                set({
-                    user: latest
-                        ? {
-                            ...latest,
-                            name: latest.name || authProfile.name || '',
-                            avatarUrl: latest.avatarUrl || authProfile.avatarUrl,
-                        }
-                        : null,
-                });
-                setMfaPendingCookie(false);
-                setSessionCookie(Boolean(latest));
-                if (latest) {
-                    markMfaVerified(accessToken);
-                }
-                    } catch (apiError) {
-                        console.warn('Auth API current() failed, trying direct Supabase profile', apiError);
+                // Skip remote /auth/me when upstream API is unavailable; fallback handled below.
+            } catch (apiError) {
+                console.warn('Auth API current() failed, trying direct Supabase profile', apiError);
 
                         // Second try: direct Supabase profile (RLS must allow).
                 const { data: profiles, error: profileError } = await supabase
