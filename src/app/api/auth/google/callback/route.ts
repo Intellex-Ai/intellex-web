@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createClient } from '@supabase/supabase-js';
+import { getRequestSiteUrl } from '@/lib/site-url';
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID?.trim();
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET?.trim();
@@ -24,9 +25,7 @@ export async function GET(req: NextRequest) {
     const error = searchParams.get('error');
 
     // Determine origin for redirects
-    const origin = req.headers.get('x-forwarded-host')
-        ? `https://${req.headers.get('x-forwarded-host')}`
-        : req.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3100';
+    const origin = getRequestSiteUrl(req);
 
     // Helper to redirect with error
     const redirectWithError = (message: string) => {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { getRequestSiteUrl } from '@/lib/site-url';
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID?.trim();
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
@@ -13,10 +14,8 @@ export async function GET(req: NextRequest) {
     const redirectTo = searchParams.get('redirect') || '/dashboard';
 
     // Determine the callback URL based on the request origin
-    const origin = req.headers.get('x-forwarded-host') 
-        ? `https://${req.headers.get('x-forwarded-host')}`
-        : req.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3100';
-    
+    const origin = getRequestSiteUrl(req);
+
     const callbackUrl = `${origin}/api/auth/google/callback`;
 
     // Generate a random state for CSRF protection

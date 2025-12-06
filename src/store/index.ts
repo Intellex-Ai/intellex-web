@@ -7,6 +7,7 @@ import { ChatService } from '@/services/api/chat';
 import { ApiError } from '@/services/api/client';
 import { supabase } from '@/lib/supabase';
 import { API_BASE_URL } from '@/services/api/client';
+import { getSiteUrl } from '@/lib/site-url';
 import { setSessionCookie, setMfaPendingCookie } from '@/lib/cookies';
 import { extractAuthProfile } from '@/lib/auth-metadata';
 
@@ -78,9 +79,7 @@ const clearPersistedStore = () => {
     }
 };
 const getSiteBaseUrl = () => {
-    if (typeof window !== 'undefined') return window.location.origin;
-    if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
-    return undefined;
+    return getSiteUrl();
 };
 
 interface AppState {

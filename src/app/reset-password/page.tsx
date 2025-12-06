@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { supabase } from '@/lib/supabase';
+import { getSiteUrl } from '@/lib/site-url';
 import { Mail } from 'lucide-react';
 
 export default function ResetPasswordRequest() {
@@ -21,10 +22,7 @@ export default function ResetPasswordRequest() {
         setStatus(null);
 
         try {
-            const siteUrl =
-                process.env.NEXT_PUBLIC_SITE_URL ||
-                (typeof window !== 'undefined' ? window.location.origin : 'https://intellex-web.vercel.app');
-            const redirectUrl = `${siteUrl}/reset-password/update`;
+            const redirectUrl = `${getSiteUrl()}/reset-password/update`;
             const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
                 redirectTo: redirectUrl,
             });
