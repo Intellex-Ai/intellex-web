@@ -38,18 +38,28 @@ export const metadata: Metadata = {
   formatDetection: {
     telephone: false,
   },
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3100"),
   openGraph: {
     title: "Intellex - AI-Powered Intelligence",
     description: "The next generation of intelligence gathering.",
-    url: "https://intellex.ai",
+    url: "/",
     siteName: "Intellex",
     locale: "en_US",
     type: "website",
+    images: [
+      {
+        url: "/api/og",
+        width: 1200,
+        height: 630,
+        alt: "Intellex - AI-Powered Intelligence",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Intellex - AI-Powered Intelligence",
     description: "The next generation of intelligence gathering.",
+    images: ["/api/og"],
   },
   icons: {
     icon: [
