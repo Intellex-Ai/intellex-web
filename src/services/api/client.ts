@@ -1,8 +1,5 @@
-// Default to a known prod API host on Vercel; otherwise use env or relative /api.
-const inferredProdApi =
-    process.env.NEXT_PUBLIC_API_BASE_URL ||
-    (process.env.VERCEL ? 'https://intellex-api.vercel.app' : undefined);
-export const API_BASE_URL = (inferredProdApi || '/api').replace(/\/$/, '');
+// Always prefer same-origin API unless explicitly overridden by env to avoid CORS / SW issues.
+export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || '/api').replace(/\/$/, '');
 
 export class ApiError extends Error {
     status: number;
