@@ -640,64 +640,75 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                         });
                     }
 
+                    let profileErrorNote: unknown = null;
+
+                    // Prefer canonical profile via service-role proxy to include avatar.
                     try {
-                // Prefer canonical profile via service-role proxy to include avatar.
-                const profileRes = await fetch(`/api/profile?email=${encodeURIComponent(authUser.email ?? '')}`);
-                if (profileRes.ok) {
-                    const data = await profileRes.json();
-                    const profile = (data?.user as ProfileRow | null) ?? null;
-                    if (profile) {
-                        const safeName = profile.name || authProfile.name || '';
-                        const safeAvatar = profile.avatar_url ?? authProfile.avatarUrl ?? undefined;
-                        set({
-                            user: {
-                                id: profile.id,
-                                email: profile.email || authProfile.email || authUser.email || '',
-                                name: safeName,
-                                avatarUrl: safeAvatar,
-                                preferences: normalizePreferences(profile.preferences),
-                            },
-                        });
-                        setMfaPendingCookie(false);
-                        setSessionCookie(true);
-                        markMfaVerified(accessToken);
-                        return;
+                        const profileRes = await fetch(`/api/profile?email=${encodeURIComponent(authUser.email ?? '')}`);
+                        if (profileRes.ok) {
+                            const data = await profileRes.json();
+                            const profile = (data?.user as ProfileRow | null) ?? null;
+                            if (profile) {
+                                const safeName = profile.name || authProfile.name || '';
+                                const safeAvatar = profile.avatar_url ?? authProfile.avatarUrl ?? undefined;
+                                set({
+                                    user: {
+                                        id: profile.id,
+                                        email: profile.email || authProfile.email || authUser.email || '',
+                                        name: safeName,
+                                        avatarUrl: safeAvatar,
+                                        preferences: normalizePreferences(profile.preferences),
+                                    },
+                                });
+                                setMfaPendingCookie(false);
+                                setSessionCookie(true);
+                                markMfaVerified(accessToken);
+                                return;
+                            }
+                        }
+                    } catch (apiError) {
+                        profileErrorNote = apiError;
+                        console.warn('Profile API failed, falling back to Supabase', apiError);
                     }
-                }
 
-                // Skip remote /auth/me when upstream API is unavailable; fallback handled below.
-            } catch (apiError) {
-                console.warn('Auth API current() failed, trying direct Supabase profile', apiError);
-
-                        // Second try: direct Supabase profile (RLS must allow).
-                const { data: profiles, error: profileError } = await supabase
-                    .from('users')
-                    .select('id, email, name, avatar_url, preferences')
-                    .eq('email', authUser.email ?? '')
-                    .limit(1)
-                    .returns<ProfileRow[]>();
-                if (!profileError && profiles && profiles.length > 0) {
-                    const profile = profiles[0];
-                    if (profile.id !== authUser.id) {
-                        throw new Error('Auth/profile mismatch');
+                    // Second try: direct Supabase profile (RLS must allow).
+                    try {
+                        const { data: profiles, error: profileError } = await supabase
+                            .from('users')
+                            .select('id, email, name, avatar_url, preferences')
+                            .eq('email', authUser.email ?? '')
+                            .limit(1)
+                            .returns<ProfileRow[]>();
+                        if (!profileError && profiles && profiles.length > 0) {
+                            const profile = profiles[0];
+                            if (profile.id !== authUser.id) {
+                                throw new Error('Auth/profile mismatch');
+                            }
+                            set({
+                                user: {
+                                    id: profile.id,
+                                    email: profile.email,
+                                    name: profile.name || authProfile.name || '',
+                                    avatarUrl: profile.avatar_url ?? authProfile.avatarUrl ?? undefined,
+                                    preferences: normalizePreferences(profile.preferences),
+                                },
+                            });
+                            setMfaPendingCookie(false);
+                            setSessionCookie(true);
+                            markMfaVerified(accessToken);
+                            return;
+                        }
+                        // If RLS blocked or no profile yet, fall through to metadata fallback.
+                        profileErrorNote = profileErrorNote || profileError || 'no-profile-row';
+                    } catch (fallbackError) {
+                        profileErrorNote = profileErrorNote || fallbackError;
+                        console.warn('Supabase profile query failed', fallbackError);
                     }
-                    set({
-                        user: {
-                            id: profile.id,
-                            email: profile.email,
-                            name: profile.name || authProfile.name || '',
-                            avatarUrl: profile.avatar_url ?? authProfile.avatarUrl ?? undefined,
-                            preferences: normalizePreferences(profile.preferences),
-                        },
-                    });
-                    setMfaPendingCookie(false);
-                    setSessionCookie(true);
-                    markMfaVerified(accessToken);
-                    return;
-                }
 
-                        // Last fallback: Supabase auth metadata.
-                    console.warn('Supabase profile fallback in use', profileError);
+                    // Last fallback: Supabase auth metadata.
+                    if (profileErrorNote) {
+                        console.warn('Supabase profile fallback in use', profileErrorNote);
+                    }
                     set({
                         user: {
                             id: authUser.id,
@@ -707,10 +718,9 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                             preferences: { theme: 'system' },
                         },
                     });
-                        setMfaPendingCookie(false);
-                        setSessionCookie(true);
-                        markMfaVerified(accessToken);
-                    }
+                    setMfaPendingCookie(false);
+                    setSessionCookie(true);
+                    markMfaVerified(accessToken);
                 } catch (error) {
                     console.error('Failed to refresh user', error);
                     setSessionCookie(false);
