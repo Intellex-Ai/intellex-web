@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/Input';
 import { MfaSetup } from '@/components/auth/MfaSetup';
 import { AuthService } from '@/services/api/auth';
 import { supabase } from '@/lib/supabase';
+import { extractAuthProfile } from '@/lib/auth-metadata';
 
 export default function ProfilePage() {
     const router = useRouter();
@@ -33,6 +34,7 @@ export default function ProfilePage() {
         bio: user?.preferences?.bio || '',
     });
     const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const authPrefillAttempted = useRef(false);
 
     useEffect(() => {
         refreshUser();
@@ -53,29 +55,29 @@ export default function ProfilePage() {
         }
     }, [user]);
 
-    // If the profile name is empty, hydrate it from Supabase auth metadata (useful right after OAuth signup).
+    // Prefill profile fields from OAuth/Supabase metadata right after signup.
     useEffect(() => {
-        if (formData.name.trim()) return;
-        const loadAuthName = async () => {
+        const needsPrefill = !formData.name.trim() || !formData.email.trim() || !formData.avatarUrl;
+        if (!needsPrefill || authPrefillAttempted.current || isEditing) return;
+
+        const hydrateFromAuth = async () => {
             const { data } = await supabase.auth.getUser();
             const authUser = data?.user;
             if (!authUser) return;
-            const meta = (authUser.user_metadata as Record<string, unknown>) || {};
-            const displayName =
-                (meta.display_name as string) ||
-                (meta.full_name as string) ||
-                (meta.name as string) ||
-                '';
-            if (!displayName.trim()) return;
+            const authProfile = extractAuthProfile(authUser);
+            if (!authProfile.name && !authProfile.email && !authProfile.avatarUrl) return;
 
-            // Update local form if missing name.
             setFormData((prev) => ({
                 ...prev,
-                name: prev.name || displayName,
+                name: prev.name || authProfile.name || '',
+                email: prev.email || authProfile.email || '',
+                avatarUrl: prev.avatarUrl || authProfile.avatarUrl || '',
             }));
         };
-        void loadAuthName();
-    }, [formData.name]);
+
+        authPrefillAttempted.current = true;
+        void hydrateFromAuth();
+    }, [formData.name, formData.email, formData.avatarUrl, isEditing]);
 
     const handleSave = async () => {
         setIsLoading(true);

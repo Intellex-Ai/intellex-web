@@ -8,6 +8,7 @@ import { ApiError } from '@/services/api/client';
 import { supabase } from '@/lib/supabase';
 import { API_BASE_URL } from '@/services/api/client';
 import { setSessionCookie, setMfaPendingCookie } from '@/lib/cookies';
+import { extractAuthProfile } from '@/lib/auth-metadata';
 
 type ProfileRow = {
     id: string;
@@ -245,12 +246,9 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                     // Derive best-available display name from provided name or Supabase auth metadata.
                     let displayName = name;
                     const { data: authedUser } = await supabase.auth.getUser();
-                    const metaName =
-                        (authedUser?.user?.user_metadata as Record<string, unknown>)?.display_name ||
-                        (authedUser?.user?.user_metadata as Record<string, unknown>)?.full_name ||
-                        undefined;
+                    const authProfile = extractAuthProfile(authedUser?.user);
                     if (!displayName) {
-                        displayName = metaName as string | undefined;
+                        displayName = authProfile.name;
                     }
                     const fallbackName = displayName || (email.includes('@') ? email.split('@')[0] : email);
 
@@ -554,6 +552,8 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                         return;
                     }
 
+                    const authProfile = extractAuthProfile(authUser);
+
                     // Enforce MFA even for OAuth sessions: if a verified TOTP factor exists, start a challenge and gate login.
                     const { mfaRequired, mfaChallengeId, mfaFactorId } = get();
                     const { data: factors, error: listError } = await supabase.auth.mfa.listFactors();
@@ -647,13 +647,14 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                     const data = await profileRes.json();
                     const profile = (data?.user as ProfileRow | null) ?? null;
                     if (profile) {
-                        const safeName = profile.name || '';
+                        const safeName = profile.name || authProfile.name || '';
+                        const safeAvatar = profile.avatar_url ?? authProfile.avatarUrl ?? undefined;
                         set({
                             user: {
                                 id: profile.id,
-                                email: profile.email,
+                                email: profile.email || authProfile.email || authUser.email || '',
                                 name: safeName,
-                                avatarUrl: profile.avatar_url ?? undefined,
+                                avatarUrl: safeAvatar,
                                 preferences: normalizePreferences(profile.preferences),
                             },
                         });
@@ -672,7 +673,15 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                 if (latest && latest.id !== authUser.id) {
                     throw new Error('Auth/profile mismatch');
                 }
-                set({ user: latest ? { ...latest, name: latest.name || '' } : null });
+                set({
+                    user: latest
+                        ? {
+                            ...latest,
+                            name: latest.name || authProfile.name || '',
+                            avatarUrl: latest.avatarUrl || authProfile.avatarUrl,
+                        }
+                        : null,
+                });
                 setMfaPendingCookie(false);
                 setSessionCookie(Boolean(latest));
                 if (latest) {
@@ -697,8 +706,8 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                         user: {
                             id: profile.id,
                             email: profile.email,
-                            name: profile.name || '',
-                            avatarUrl: profile.avatar_url ?? undefined,
+                            name: profile.name || authProfile.name || '',
+                            avatarUrl: profile.avatar_url ?? authProfile.avatarUrl ?? undefined,
                             preferences: normalizePreferences(profile.preferences),
                         },
                     });
@@ -713,11 +722,9 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                     set({
                         user: {
                             id: authUser.id,
-                            email: authUser.email ?? '',
-                            name:
-                                    ((authUser.user_metadata as Record<string, unknown>)?.display_name as string) ||
-                                    '',
-                            avatarUrl: undefined,
+                            email: authProfile.email || authUser.email || '',
+                            name: authProfile.name || '',
+                            avatarUrl: authProfile.avatarUrl,
                             preferences: { theme: 'system' },
                         },
                     });
