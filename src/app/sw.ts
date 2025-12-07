@@ -33,10 +33,10 @@ serwist.addEventListeners();
 
 // Explicitly disable push notifications. If a push event arrives (e.g. from a
 // previously configured backend), ignore it and close any stray notifications.
-self.addEventListener("push", (event: PushEvent) => {
+(self as unknown as ServiceWorkerGlobalScope).addEventListener("push", (event: PushEvent) => {
   event.waitUntil(Promise.resolve());
 });
 
-self.addEventListener("notificationclick", (event: NotificationEvent) => {
+(self as unknown as ServiceWorkerGlobalScope).addEventListener("notificationclick", (event: NotificationEvent) => {
   event.notification.close();
 });
