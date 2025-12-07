@@ -1,4 +1,4 @@
-import AppLayout from '@/components/layout/AppLayout';
+import { AppLayout } from '@/components/layout/AppLayout';
 import { WorkspaceProvider } from '@/components/providers/WorkspaceProvider';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
