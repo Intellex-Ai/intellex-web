@@ -69,8 +69,8 @@ export function AppLayout({ children }: AppLayoutProps) {
         <div className="flex min-h-screen bg-black text-foreground font-sans selection:bg-primary selection:text-black">
             {/* Mobile Header */}
             <header className="md:hidden h-[64px] px-6 flex items-center justify-between bg-black/80 backdrop-blur-md border-b border-white/10 fixed top-0 left-0 right-0 z-50">
-                <Link href="/dashboard" className="font-mono text-xl font-bold text-white tracking-tight uppercase">
-                    Intellex
+                <Link href="/dashboard" className="font-mono text-xl font-black text-white tracking-tighter uppercase flex items-center gap-2">
+                    <span className="text-primary">{'///'}</span> INTELLEX
                 </Link>
                 <button
                     onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -91,13 +91,12 @@ export function AppLayout({ children }: AppLayoutProps) {
                 "md:translate-x-0",
                 isSidebarOpen ? "md:w-[280px]" : "md:w-[80px]"
             )}>
-                {/* Sidebar Header */}
                 <div className="h-[80px] flex items-center justify-between px-6 border-b border-white/10">
                     <Link href="/dashboard" className={clsx(
-                        "font-mono text-xl font-bold text-white tracking-widest uppercase transition-all duration-300",
+                        "font-mono text-xl font-black text-white tracking-tighter uppercase flex items-center gap-2 transition-all duration-300",
                         !isSidebarOpen && "md:opacity-0 md:w-0 md:hidden"
                     )}>
-                        Intellex
+                        <span className="text-primary">{'///'}</span> INTELLEX
                     </Link>
 
                     {/* Desktop Collapse Toggle */}
