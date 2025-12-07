@@ -122,11 +122,11 @@ export function AppLayout({ children }: AppLayoutProps) {
                                 href={item.href}
                                 className={clsx(
                                     "group relative flex items-center gap-4 px-4 py-3 transition-all duration-200 border-l-2",
-                                    "active:bg-zinc-900",
+                                    "hover:bg-white/5",
                                     // Active State
                                     isActive
-                                        ? "border-primary bg-zinc-900/50 text-primary"
-                                        : "border-transparent text-muted-foreground hover:text-white hover:bg-white/5",
+                                        ? "border-primary bg-gradient-to-r from-primary/25 to-transparent text-primary"
+                                        : "border-transparent text-muted-foreground hover:text-white",
                                     // Collapsed state adjustment
                                     !isSidebarOpen && "md:justify-center md:px-2 md:border-l-0"
                                 )}
@@ -136,13 +136,15 @@ export function AppLayout({ children }: AppLayoutProps) {
                                     size={20}
                                     className={clsx(
                                         "shrink-0 transition-colors duration-200",
-                                        isActive ? "text-primary drop-shadow-[0_0_5px_rgba(255,77,0,0.5)]" : "group-hover:text-white"
+                                        isActive
+                                            ? "text-primary drop-shadow-[0_0_12px_rgba(255,77,0,1)]"
+                                            : "group-hover:text-white group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]"
                                     )}
                                 />
 
                                 <span className={clsx(
                                     "font-mono text-xs uppercase tracking-wider whitespace-nowrap transition-all duration-300",
-                                    isActive && "font-bold",
+                                    isActive && "font-bold text-primary drop-shadow-[0_0_10px_rgba(255,77,0,0.9)]",
                                     !isSidebarOpen && "md:opacity-0 md:w-0 md:hidden"
                                 )}>
                                     {item.label}
