@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useStore } from '@/store';
-import { Bell, Shield, LogOut, Moon, Monitor, Key, Globe, Clock, Save, MonitorSmartphone } from 'lucide-react';
+import { Shield, LogOut, Moon, Monitor, Key, Globe, Clock, Save, MonitorSmartphone } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/Button';
@@ -173,19 +173,6 @@ export default function SettingsPage() {
                         <div className="flex bg-black border border-white/10 p-1 rounded-none">
                             <button className="px-3 py-1 text-[10px] font-mono uppercase bg-white/10 text-white rounded-none">Dark</button>
                             <button className="px-3 py-1 text-[10px] font-mono uppercase text-muted hover:text-white">Light</button>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 bg-black/50 border border-white/10 rounded-none">
-                        <div className="flex items-center gap-3">
-                            <Bell size={18} className="text-muted" />
-                            <div>
-                                <h4 className="text-sm font-bold text-white font-mono uppercase">Notifications</h4>
-                                <p className="text-xs text-muted font-mono">Email digests enabled</p>
-                            </div>
-                        </div>
-                        <div className="w-10 h-5 bg-primary/20 rounded-full relative cursor-pointer border border-primary/50">
-                            <div className="absolute right-0.5 top-0.5 w-3.5 h-3.5 bg-primary rounded-full shadow-[0_0_10px_rgba(255,77,0,0.8)]" />
                         </div>
                     </div>
                 </div>
