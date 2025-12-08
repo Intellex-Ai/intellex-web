@@ -9,17 +9,25 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url);
+    const userId = searchParams.get('userId')?.trim();
     const email = searchParams.get('email')?.trim().toLowerCase();
-    if (!email) {
-        return NextResponse.json({ error: 'email is required' }, { status: 400 });
+    if (!email && !userId) {
+        return NextResponse.json({ error: 'email or userId is required' }, { status: 400 });
     }
 
     try {
-        const { data: profile, error } = await admin
+        const query = admin
             .from('users')
             .select('id, email, name, avatar_url, preferences')
-            .eq('email', email)
-            .single();
+            .limit(1);
+
+        if (userId) {
+            query.eq('id', userId);
+        } else if (email) {
+            query.eq('email', email);
+        }
+
+        const { data: profile, error } = await query.single();
         if (error) {
             throw error;
         }
@@ -37,13 +45,14 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Supabase service role not configured' }, { status: 500 });
     }
 
-    let payload: { email?: string; name?: string; avatarUrl?: string; title?: string; organization?: string; location?: string; bio?: string };
+    let payload: { userId?: string; email?: string; name?: string; avatarUrl?: string; title?: string; organization?: string; location?: string; bio?: string };
     try {
         payload = await req.json();
     } catch {
         return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
     }
 
+    const userId = payload.userId?.trim();
     const email = payload.email?.trim().toLowerCase();
     const name = payload.name?.trim();
     const avatarUrl = payload.avatarUrl;
@@ -52,18 +61,28 @@ export async function POST(req: Request) {
     const location = payload.location?.trim();
     const bio = payload.bio?.trim();
 
-    if (!email || !name) {
-        return NextResponse.json({ error: 'email and name are required' }, { status: 400 });
+    if ((!email && !userId) || !name) {
+        return NextResponse.json({ error: 'email or userId and name are required' }, { status: 400 });
     }
 
     try {
-        // Find user by email via admin list
-        const { data: listData, error: listErr } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-        if (listErr) {
-            throw listErr;
+        // Find user via admin client using the most reliable identifier available.
+        let found = null;
+        if (userId) {
+            const { data, error } = await admin.auth.admin.getUserById(userId);
+            if (error) {
+                throw error;
+            }
+            found = data?.user ?? null;
+        } else if (email) {
+            const { data: listData, error: listErr } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+            if (listErr) {
+                throw listErr;
+            }
+            found = listData.users.find((u) => u.email?.toLowerCase() === email) ?? null;
         }
-        const found = listData.users.find((u) => u.email?.toLowerCase() === email);
-        if (!found) {
+
+        if (!found?.id) {
             return NextResponse.json({ error: 'User not found in auth' }, { status: 400 });
         }
 
@@ -97,7 +116,7 @@ export async function POST(req: Request) {
             .from('users')
             .upsert({
                 id: found.id,
-                email,
+                email: email || found.email,
                 name,
                 avatar_url: avatarUrl ?? null,
                 preferences: mergedPreferences,

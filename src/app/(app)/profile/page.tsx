@@ -11,6 +11,7 @@ import { MfaSetup } from '@/components/auth/MfaSetup';
 import { AuthService } from '@/services/api/auth';
 import { supabase } from '@/lib/supabase';
 import { extractAuthProfile } from '@/lib/auth-metadata';
+import { getSiteUrl } from '@/lib/site-url';
 
 export default function ProfilePage() {
     const router = useRouter();
@@ -80,6 +81,10 @@ export default function ProfilePage() {
     }, [formData.name, formData.email, formData.avatarUrl, isEditing]);
 
     const handleSave = async () => {
+        if (!user) {
+            setProfileError('No active session. Please re-login.');
+            return;
+        }
         setIsLoading(true);
         setProfileError(null);
         setProfileStatus(null);
@@ -88,11 +93,28 @@ export default function ProfilePage() {
                 throw new Error('Name is required');
             }
 
+            const normalizedEmail = formData.email.trim().toLowerCase();
+            const originalEmail = (user.email || '').toLowerCase();
+            const emailChanged = Boolean(normalizedEmail && normalizedEmail !== originalEmail);
+
+            if (emailChanged) {
+                const baseUrl = getSiteUrl();
+                const emailRedirectTo = baseUrl ? `${baseUrl}/auth/email-verified?email=${encodeURIComponent(normalizedEmail)}` : undefined;
+                const { error: emailChangeError } = await supabase.auth.updateUser(
+                    { email: normalizedEmail, data: { display_name: formData.name.trim() } },
+                    emailRedirectTo ? { emailRedirectTo } : undefined
+                );
+                if (emailChangeError) {
+                    throw new Error(emailChangeError.message || 'Failed to start email change');
+                }
+            }
+
             const res = await fetch('/api/profile', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    email: formData.email.trim().toLowerCase(),
+                    userId: user.id,
+                    email: normalizedEmail,
                     name: formData.name.trim(),
                     avatarUrl: formData.avatarUrl || undefined,
                     title: formData.title,
@@ -106,7 +128,11 @@ export default function ProfilePage() {
                 throw new Error(data.error || 'Failed to update profile');
             }
 
-            setProfileStatus('Profile updated. If you changed email, check your inbox to confirm.');
+            setProfileStatus(
+                emailChanged
+                    ? 'Email change requested. Check your new inbox to confirm and sign in with the updated address.'
+                    : 'Profile updated.'
+            );
             setIsEditing(false);
             await refreshUser();
             setIsEditing(false);
@@ -121,7 +147,10 @@ export default function ProfilePage() {
     const loadPending = async () => {
         if (!formData.email) return;
         try {
-            const res = await fetch(`/api/profile/pending?email=${encodeURIComponent(formData.email)}`);
+            const params = new URLSearchParams();
+            params.set('email', formData.email);
+            if (user?.id) params.set('userId', user.id);
+            const res = await fetch(`/api/profile/pending?${params.toString()}`);
             if (!res.ok) return;
             const data = await res.json();
             setPendingInfo({

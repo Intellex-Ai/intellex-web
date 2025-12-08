@@ -8,17 +8,27 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url);
+    const userId = searchParams.get('userId')?.trim();
     const email = searchParams.get('email')?.trim().toLowerCase();
-    if (!email) {
-        return NextResponse.json({ error: 'email is required' }, { status: 400 });
+    if (!email && !userId) {
+        return NextResponse.json({ error: 'email or userId is required' }, { status: 400 });
     }
 
     try {
-        const { data: listData, error: listErr } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-        if (listErr) {
-            throw listErr;
+        let found = null;
+        if (userId) {
+            const { data, error } = await admin.auth.admin.getUserById(userId);
+            if (error) {
+                throw error;
+            }
+            found = data?.user ?? null;
+        } else {
+            const { data: listData, error: listErr } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+            if (listErr) {
+                throw listErr;
+            }
+            found = listData.users.find((u) => u.email?.toLowerCase() === email);
         }
-        const found = listData.users.find((u) => u.email?.toLowerCase() === email);
         if (!found) {
             return NextResponse.json({ error: 'User not found' }, { status: 400 });
         }
