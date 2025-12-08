@@ -2,9 +2,9 @@ import { ResearchPlan, ResearchProject } from '@/types';
 import { api } from './client';
 
 export const ProjectService = {
-    list: () => api.get<ResearchProject[]>('/projects'),
+    list: (userId: string) => api.get<ResearchProject[]>('/projects', { userId }),
     get: (projectId: string) => api.get<ResearchProject>(`/projects/${projectId}`),
-    create: (title: string, goal: string, userId?: string | null) =>
+    create: (title: string, goal: string, userId: string) =>
         api.post<ResearchProject>('/projects', { title, goal, userId }),
     update: (projectId: string, payload: { title?: string; goal?: string; status?: ResearchProject['status'] }) =>
         api.request<ResearchProject>(`/projects/${projectId}`, { method: 'PATCH', body: payload }),

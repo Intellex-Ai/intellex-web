@@ -112,16 +112,41 @@ interface AppState {
     setHydrated: () => void;
 }
 
-export const useStore = create<AppState>()(persist((set, get) => ({
-    user: null,
-    projects: [],
-    activeProject: null,
-    activePlan: null,
-    messages: [],
-    isLoading: false,
-    isHydrated: false,
-    ...baseMfaState,
-    timezone: 'UTC',
+export const useStore = create<AppState>()(persist((set, get) => {
+    const ensureBackendUser = async (): Promise<User> => {
+        const { user } = get();
+        const { data, error } = await supabase.auth.getUser();
+        if (error || !data?.user) {
+            throw new Error('Supabase session is required to manage projects.');
+        }
+
+        const authUser = data.user;
+        const authProfile = extractAuthProfile(authUser);
+        const email = authUser.email || user?.email;
+        if (!email) {
+            throw new Error('Supabase user email is required.');
+        }
+
+        const name = user?.name || authProfile?.name || (email ? email.split('@')[0] : 'Intellex User');
+        const apiUser = await AuthService.login(email, name, authUser.id);
+        const mergedUser: User = {
+            ...apiUser,
+            avatarUrl: apiUser.avatarUrl || authProfile?.avatarUrl || user?.avatarUrl,
+        };
+        set({ user: mergedUser });
+        return mergedUser;
+    };
+
+    return {
+        user: null,
+        projects: [],
+        activeProject: null,
+        activePlan: null,
+        messages: [],
+        isLoading: false,
+        isHydrated: false,
+        ...baseMfaState,
+        timezone: 'UTC',
 
             login: async (email: string, password: string, name?: string, mode: 'login' | 'signup' = 'login'): Promise<boolean> => {
                 set({
@@ -417,7 +442,8 @@ export const useStore = create<AppState>()(persist((set, get) => ({
             loadProjects: async () => {
                 set({ isLoading: true });
                 try {
-                    const projects = await ProjectService.list();
+                    const apiUser = await ensureBackendUser();
+                    const projects = await ProjectService.list(apiUser.id);
                     set({ projects });
                 } catch (error) {
                     console.error('Failed to reach API for projects', error);
@@ -430,45 +456,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
             createProject: async (title: string, goal: string) => {
                 set({ isLoading: true });
                 try {
-                    const { user } = get();
-
-                    const ensureUser = async () => {
-                        try {
-                            const { data } = await supabase.auth.getUser();
-                            const authUser = data?.user;
-                            const authProfile = authUser ? extractAuthProfile(authUser) : null;
-                            const email = authUser?.email || user?.email;
-                            const name =
-                                user?.name ||
-                                authProfile?.name ||
-                                (email ? email.split('@')[0] : 'Intellex User');
-                            const supabaseUserId = authUser?.id || user?.id;
-                            if (email) {
-                                const apiUser = await AuthService.login(email, name, supabaseUserId);
-                                set({ user: apiUser });
-                                return apiUser;
-                            }
-                        } catch (authErr) {
-                            console.warn('ensureUser auth lookup failed', authErr);
-                        }
-
-                        try {
-                            const fallbackEmail = 'guest@intellex.local';
-                            const fallbackName = 'Guest User';
-                            const apiUser = await AuthService.login(fallbackEmail, fallbackName);
-                            set({ user: apiUser });
-                            return apiUser;
-                        } catch (fallbackErr) {
-                            console.warn('ensureUser fallback failed', fallbackErr);
-                            return null;
-                        }
-                    };
-
-                    const ensuredUser = await ensureUser();
-                    if (!ensuredUser) {
-                        throw new Error('Unable to create project without a user session.');
-                    }
-
+                    const ensuredUser = await ensureBackendUser();
                     const project = await ProjectService.create(title, goal, ensuredUser.id);
                     const [messages, plan] = await Promise.all([
                         ChatService.getMessages(project.id),
@@ -483,7 +471,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                     return project;
                 } catch (error) {
                     console.error('Failed to create project', error);
-                    return null;
+                    throw error instanceof Error ? error : new Error('Failed to create project');
                 } finally {
                     set({ isLoading: false });
                 }
@@ -826,8 +814,8 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                     });
                 }
             },
-}),
-{
+    };
+}, {
     name: 'intellex-store',
     // Persist only long-lived data; omit transient loading flag.
     partialize: (state) => ({

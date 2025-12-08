@@ -21,6 +21,7 @@ export function CreateProjectModal({ isOpen, onClose, project }: CreateProjectMo
     const [goal, setGoal] = useState(project?.goal || '');
     const [status, setStatus] = useState<ResearchProject['status']>(project?.status || 'active');
     const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const { createProject, updateProject, deleteProject, selectProject } = useStore();
     const router = useRouter();
     const statusOptions: ResearchProject['status'][] = useMemo(() => ['draft', 'active', 'completed', 'archived'], []);
@@ -35,11 +36,13 @@ export function CreateProjectModal({ isOpen, onClose, project }: CreateProjectMo
             setGoal('');
             setStatus('active');
         }
+        setError(null);
     }, [project, isOpen]);
 
     const handleCreate = async () => {
         if (!title.trim() || !goal.trim()) return;
         setIsLoading(true);
+        setError(null);
         try {
             const project = await createProject(title, goal);
             setTitle('');
@@ -51,6 +54,8 @@ export function CreateProjectModal({ isOpen, onClose, project }: CreateProjectMo
             onClose();
         } catch (e) {
             console.error(e);
+            const message = e instanceof Error ? e.message : 'Failed to create project.';
+            setError(message);
         } finally {
             setIsLoading(false);
         }
@@ -60,14 +65,19 @@ export function CreateProjectModal({ isOpen, onClose, project }: CreateProjectMo
         if (!project) return;
         if (!title.trim() || !goal.trim()) return;
         setIsLoading(true);
+        setError(null);
         try {
             const updated = await updateProject(project.id, { title, goal, status });
             if (updated?.id) {
                 await selectProject(updated.id);
+                onClose();
+                return;
             }
-            onClose();
+            setError('Failed to update project.');
         } catch (e) {
             console.error(e);
+            const message = e instanceof Error ? e.message : 'Failed to update project.';
+            setError(message);
         } finally {
             setIsLoading(false);
         }
@@ -78,6 +88,7 @@ export function CreateProjectModal({ isOpen, onClose, project }: CreateProjectMo
         const confirmed = window.confirm('Delete this project? This will remove its messages and plan.');
         if (!confirmed) return;
         setIsLoading(true);
+        setError(null);
         try {
             const deleted = await deleteProject(project.id);
             if (deleted) {
@@ -85,9 +96,12 @@ export function CreateProjectModal({ isOpen, onClose, project }: CreateProjectMo
                     router.push('/projects');
                 }
                 onClose();
+                return;
             }
+            setError('Failed to delete project. Please try again.');
         } catch (e) {
             console.error(e);
+            setError('Failed to delete project. Please try again.');
         } finally {
             setIsLoading(false);
         }
@@ -160,6 +174,12 @@ export function CreateProjectModal({ isOpen, onClose, project }: CreateProjectMo
                                             className="w-full h-32 bg-white/5 border border-white/10 text-white p-4 font-mono text-sm focus:outline-none focus:border-primary/50 focus:bg-black transition-all resize-none placeholder:text-white/20"
                                         />
                                     </div>
+
+                                    {error && (
+                                        <p className="text-error text-xs font-mono uppercase tracking-wider">
+                                            {error}
+                                        </p>
+                                    )}
 
                                     {isEdit && (
                                         <div className="space-y-2">
