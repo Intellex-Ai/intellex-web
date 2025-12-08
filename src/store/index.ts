@@ -102,6 +102,8 @@ interface AppState {
     logout: () => Promise<void>;
     loadProjects: () => Promise<void>;
     createProject: (title: string, goal: string) => Promise<ResearchProject | null>;
+    updateProject: (projectId: string, payload: { title?: string; goal?: string; status?: ResearchProject['status'] }) => Promise<ResearchProject | null>;
+    deleteProject: (projectId: string) => Promise<boolean>;
     selectProject: (projectId: string) => Promise<void>;
     sendMessage: (content: string) => Promise<void>;
     refreshUser: () => Promise<void>;
@@ -429,7 +431,45 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                 set({ isLoading: true });
                 try {
                     const { user } = get();
-                    const project = await ProjectService.create(title, goal, user?.id);
+
+                    const ensureUser = async () => {
+                        try {
+                            const { data } = await supabase.auth.getUser();
+                            const authUser = data?.user;
+                            const authProfile = authUser ? extractAuthProfile(authUser) : null;
+                            const email = authUser?.email || user?.email;
+                            const name =
+                                user?.name ||
+                                authProfile?.name ||
+                                (email ? email.split('@')[0] : 'Intellex User');
+                            const supabaseUserId = authUser?.id || user?.id;
+                            if (email) {
+                                const apiUser = await AuthService.login(email, name, supabaseUserId);
+                                set({ user: apiUser });
+                                return apiUser;
+                            }
+                        } catch (authErr) {
+                            console.warn('ensureUser auth lookup failed', authErr);
+                        }
+
+                        try {
+                            const fallbackEmail = 'guest@intellex.local';
+                            const fallbackName = 'Guest User';
+                            const apiUser = await AuthService.login(fallbackEmail, fallbackName);
+                            set({ user: apiUser });
+                            return apiUser;
+                        } catch (fallbackErr) {
+                            console.warn('ensureUser fallback failed', fallbackErr);
+                            return null;
+                        }
+                    };
+
+                    const ensuredUser = await ensureUser();
+                    if (!ensuredUser) {
+                        throw new Error('Unable to create project without a user session.');
+                    }
+
+                    const project = await ProjectService.create(title, goal, ensuredUser.id);
                     const [messages, plan] = await Promise.all([
                         ChatService.getMessages(project.id),
                         ProjectService.getPlan(project.id).catch(() => null)
@@ -449,14 +489,70 @@ export const useStore = create<AppState>()(persist((set, get) => ({
                 }
             },
 
+            updateProject: async (projectId: string, payload: { title?: string; goal?: string; status?: ResearchProject['status'] }) => {
+                set({ isLoading: true });
+                try {
+                    const updated = await ProjectService.update(projectId, payload);
+                    set((state) => ({
+                        projects: state.projects.map((p) => (p.id === projectId ? { ...p, ...updated } : p)),
+                        activeProject:
+                            state.activeProject && state.activeProject.id === projectId
+                                ? { ...state.activeProject, ...updated }
+                                : state.activeProject,
+                    }));
+                    return updated;
+                } catch (error) {
+                    console.error('Failed to update project', error);
+                    return null;
+                } finally {
+                    set({ isLoading: false });
+                }
+            },
+
+            deleteProject: async (projectId: string) => {
+                set({ isLoading: true });
+                try {
+                    await ProjectService.delete(projectId);
+                    set((state) => {
+                        const remaining = state.projects.filter((p) => p.id !== projectId);
+                        const isActive = state.activeProject?.id === projectId;
+                        return {
+                            projects: remaining,
+                            activeProject: isActive ? null : state.activeProject,
+                            activePlan: isActive ? null : state.activePlan,
+                            messages: isActive ? [] : state.messages,
+                        };
+                    });
+                    return true;
+                } catch (error) {
+                    console.error('Failed to delete project', error);
+                    return false;
+                } finally {
+                    set({ isLoading: false });
+                }
+            },
+
             selectProject: async (projectId: string) => {
                 set({ isLoading: true, activeProject: null, messages: [], activePlan: null });
                 try {
                     const project = await ProjectService.get(projectId);
-                    const [messages, plan] = await Promise.all([
-                        ChatService.getMessages(projectId),
-                        ProjectService.getPlan(projectId).catch(() => null)
-                    ]);
+                    let messages: ChatMessage[] = [];
+                    let plan: ResearchPlan | null = null;
+
+                    try {
+                        messages = await ChatService.getMessages(projectId);
+                    } catch (msgErr) {
+                        console.error('Failed to load messages', msgErr);
+                        messages = [];
+                    }
+
+                    try {
+                        plan = await ProjectService.getPlan(projectId);
+                    } catch (planErr) {
+                        console.error('Failed to load plan', planErr);
+                        plan = null;
+                    }
+
                     set({ activeProject: project, messages, activePlan: plan });
                 } catch (error) {
                     if (error instanceof ApiError && error.status === 404) {

@@ -1,24 +1,41 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ArrowRight, Target, Type } from 'lucide-react';
+import { X, ArrowRight, Target, Type, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useStore } from '@/store';
 import { useRouter } from 'next/navigation';
+import { ResearchProject } from '@/types';
 
 interface CreateProjectModalProps {
     isOpen: boolean;
     onClose: () => void;
+    project?: ResearchProject | null;
 }
 
-export function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps) {
-    const [title, setTitle] = useState('');
-    const [goal, setGoal] = useState('');
+export function CreateProjectModal({ isOpen, onClose, project }: CreateProjectModalProps) {
+    const isEdit = Boolean(project);
+    const [title, setTitle] = useState(project?.title || '');
+    const [goal, setGoal] = useState(project?.goal || '');
+    const [status, setStatus] = useState<ResearchProject['status']>(project?.status || 'active');
     const [isLoading, setIsLoading] = useState(false);
-    const { createProject } = useStore();
+    const { createProject, updateProject, deleteProject, selectProject } = useStore();
     const router = useRouter();
+    const statusOptions: ResearchProject['status'][] = useMemo(() => ['draft', 'active', 'completed', 'archived'], []);
+
+    useEffect(() => {
+        if (project) {
+            setTitle(project.title);
+            setGoal(project.goal);
+            setStatus(project.status);
+        } else {
+            setTitle('');
+            setGoal('');
+            setStatus('active');
+        }
+    }, [project, isOpen]);
 
     const handleCreate = async () => {
         if (!title.trim() || !goal.trim()) return;
@@ -38,6 +55,45 @@ export function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps)
             setIsLoading(false);
         }
     };
+
+    const handleUpdate = async () => {
+        if (!project) return;
+        if (!title.trim() || !goal.trim()) return;
+        setIsLoading(true);
+        try {
+            const updated = await updateProject(project.id, { title, goal, status });
+            if (updated?.id) {
+                await selectProject(updated.id);
+            }
+            onClose();
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!project) return;
+        const confirmed = window.confirm('Delete this project? This will remove its messages and plan.');
+        if (!confirmed) return;
+        setIsLoading(true);
+        try {
+            const deleted = await deleteProject(project.id);
+            if (deleted) {
+                if (useStore.getState().activeProject?.id === project.id) {
+                    router.push('/projects');
+                }
+                onClose();
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const submitDisabled = !title.trim() || !goal.trim();
 
     return (
         <AnimatePresence>
@@ -68,10 +124,10 @@ export function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps)
                                     <div>
                                         <h2 className="text-xl font-mono font-bold text-white uppercase tracking-tighter flex items-center gap-2">
                                             <span className="w-2 h-2 bg-primary animate-pulse" />
-                                            Initialize_Project
+                                            {isEdit ? 'Edit_Project' : 'Initialize_Project'}
                                         </h2>
                                         <p className="text-xs text-muted font-mono mt-1 uppercase tracking-wide">
-                                            {`// Define_Research_Parameters`}
+                                            {isEdit ? '// Update_scope_or_status' : '// Define_Research_Parameters'}
                                         </p>
                                     </div>
                                     <button
@@ -105,23 +161,66 @@ export function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps)
                                         />
                                     </div>
 
+                                    {isEdit && (
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-mono text-muted uppercase tracking-wider flex items-center gap-2">
+                                                <ShieldAlert size={14} />
+                                                Project_Status
+                                            </label>
+                                            <select
+                                                value={status}
+                                                onChange={(e) => setStatus(e.target.value as ResearchProject['status'])}
+                                                className="w-full bg-white/5 border border-white/10 text-white p-3 font-mono text-sm focus:outline-none focus:border-primary/50 focus:bg-black transition-all"
+                                            >
+                                                {statusOptions.map((option) => (
+                                                    <option key={option} value={option} className="bg-black text-white">
+                                                        {option.toUpperCase()}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
+
                                     <div className="pt-4 flex gap-3">
                                         <Button
                                             variant="ghost"
                                             className="flex-1 border border-white/10 hover:bg-white/5"
                                             onClick={onClose}
+                                            disabled={isLoading}
                                         >
                                             ABORT
                                         </Button>
-                                        <Button
-                                            variant="primary"
-                                            className="flex-1"
-                                            onClick={handleCreate}
-                                            isLoading={isLoading}
-                                            disabled={!title.trim() || !goal.trim()}
-                                        >
-                                            INITIALIZE <ArrowRight size={16} className="ml-2" />
-                                        </Button>
+                                        {isEdit ? (
+                                            <>
+                                                <Button
+                                                    variant="ghost"
+                                                    className="border border-error/40 text-error hover:bg-error/10"
+                                                    onClick={handleDelete}
+                                                    isLoading={isLoading}
+                                                >
+                                                    DELETE
+                                                </Button>
+                                                <Button
+                                                    variant="primary"
+                                                    className="flex-1"
+                                                    onClick={handleUpdate}
+                                                    isLoading={isLoading}
+                                                    disabled={submitDisabled}
+                                                >
+                                                    SAVE <ArrowRight size={16} className="ml-2" />
+                                                </Button>
+                                            </>
+                                        ) : (
+                                            <Button
+                                                variant="primary"
+                                                className="flex-1"
+                                                onClick={handleCreate}
+                                                isLoading={isLoading}
+                                                disabled={submitDisabled}
+                                            >
+                                                INITIALIZE <ArrowRight size={16} className="ml-2" />
+                                            </Button>
+                                        )}
                                     </div>
                                 </div>
                             </div>

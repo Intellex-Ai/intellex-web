@@ -8,12 +8,14 @@ import clsx from 'clsx';
 import { TextScramble } from '@/components/ui/TextScramble';
 import { Button } from '@/components/ui/Button';
 import { CreateProjectModal } from '@/components/dashboard/CreateProjectModal';
+import { ResearchProject } from '@/types';
 
 export default function ProjectsPage() {
     const { projects, loadProjects, isLoading } = useStore();
     const [searchQuery, setSearchQuery] = useState('');
-    const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
+    const [filter, setFilter] = useState<'all' | 'draft' | 'active' | 'completed' | 'archived'>('all');
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [editingProject, setEditingProject] = useState<ResearchProject | null>(null);
 
     useEffect(() => {
         loadProjects();
@@ -46,7 +48,10 @@ export default function ProjectsPage() {
                     <Button
                         leftIcon={<Plus size={18} />}
                         className="text-xs md:text-sm w-full md:w-auto"
-                        onClick={() => setIsCreateModalOpen(true)}
+                        onClick={() => {
+                            setEditingProject(null);
+                            setIsCreateModalOpen(true);
+                        }}
                     >
                         INITIALIZE_PROJECT
                     </Button>
@@ -69,7 +74,7 @@ export default function ProjectsPage() {
 
                     {/* Filters */}
                     <div className="flex items-center gap-2 bg-black/50 border border-white/10 p-1 w-full md:w-auto overflow-x-auto">
-                        {(['all', 'active', 'completed'] as const).map((f) => (
+                        {(['all', 'draft', 'active', 'completed', 'archived'] as const).map((f) => (
                             <button
                                 key={f}
                                 onClick={() => setFilter(f)}
@@ -95,7 +100,18 @@ export default function ProjectsPage() {
                         ))
                     ) : filteredProjects.length > 0 ? (
                         filteredProjects.map((project) => (
-                            <ProjectCard key={project.id} project={project} />
+                            <ProjectCard
+                                key={project.id}
+                                project={project}
+                                onEdit={(proj) => {
+                                    setEditingProject(proj);
+                                    setIsCreateModalOpen(true);
+                                }}
+                                onDelete={(proj) => {
+                                    setEditingProject(proj);
+                                    setIsCreateModalOpen(true);
+                                }}
+                            />
                         ))
                     ) : (
                         <div className="col-span-full py-20 text-center border border-dashed border-white/10 bg-white/5">
@@ -114,7 +130,11 @@ export default function ProjectsPage() {
 
             <CreateProjectModal
                 isOpen={isCreateModalOpen}
-                onClose={() => setIsCreateModalOpen(false)}
+                onClose={() => {
+                    setIsCreateModalOpen(false);
+                    setEditingProject(null);
+                }}
+                project={editingProject}
             />
         </div >
     );

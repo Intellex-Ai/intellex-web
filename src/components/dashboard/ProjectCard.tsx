@@ -5,12 +5,14 @@ import Link from 'next/link';
 
 interface ProjectCardProps {
     project: ResearchProject;
+    onEdit?: (project: ResearchProject) => void;
+    onDelete?: (project: ResearchProject) => void;
 }
 
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 
-export const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
+export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onDelete }) => {
     const getStatusIcon = (status: string) => {
         switch (status) {
             case 'active':
@@ -38,6 +40,18 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
         });
     };
 
+    const handleEdit = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onEdit?.(project);
+    };
+
+    const handleDelete = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onDelete?.(project);
+    };
+
     return (
         <Link href={`/research/${project.id}`} className="block h-full">
             <Card hoverEffect spotlight className="h-full flex flex-col bg-black/50 backdrop-blur-sm p-6 md:p-8">
@@ -46,9 +60,31 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
                         {getStatusIcon(project.status)}
                         <span>{project.status}</span>
                     </Badge>
-                    <span className="text-[10px] text-muted font-mono tracking-wider uppercase">
-                        {`// ${formatDate(project.updatedAt)}`}
-                    </span>
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted font-mono tracking-wider uppercase">
+                            {`// ${formatDate(project.updatedAt)}`}
+                        </span>
+                        {(onEdit || onDelete) && (
+                            <div className="flex gap-1">
+                                {onEdit && (
+                                    <button
+                                        onClick={handleEdit}
+                                        className="px-2 py-1 text-[10px] font-mono uppercase tracking-wide border border-white/10 text-white hover:border-primary/40 hover:text-primary transition-colors"
+                                    >
+                                        Edit
+                                    </button>
+                                )}
+                                {onDelete && (
+                                    <button
+                                        onClick={handleDelete}
+                                        className="px-2 py-1 text-[10px] font-mono uppercase tracking-wide border border-white/10 text-error hover:border-error/60 hover:text-error transition-colors"
+                                    >
+                                        Delete
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <h3 className="text-xl font-mono font-bold mb-3 text-white tracking-tight uppercase">
