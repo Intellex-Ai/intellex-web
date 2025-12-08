@@ -20,25 +20,36 @@ const buildUrl = (path: string) => `${API_BASE_URL}${path.startsWith('/') ? path
 
 async function request<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
     const url = buildUrl(path);
+    const { body, headers: incomingHeaders, method, ...rest } = options;
     const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-        ...(options.headers || {}),
+        ...(incomingHeaders || {}),
     };
+
+    const hasBody = body !== undefined && body !== null;
+    const shouldSetJson =
+        hasBody &&
+        !(body instanceof FormData) &&
+        !(typeof body === 'string') &&
+        !(headers as Record<string, string>)['Content-Type'];
+    if (shouldSetJson) {
+        (headers as Record<string, string>)['Content-Type'] = 'application/json';
+    }
 
     const init: RequestInit = {
-        method: options.method || 'GET',
-        headers,
         cache: 'no-store',
+        ...rest,
+        method: method || 'GET',
+        headers,
     };
 
-    if (options.body) {
-        if (options.body instanceof FormData) {
+    if (hasBody) {
+        if (body instanceof FormData) {
             delete (init.headers as Record<string, string>)['Content-Type'];
-            init.body = options.body;
-        } else if (typeof options.body === 'string') {
-            init.body = options.body;
+            init.body = body;
+        } else if (typeof body === 'string') {
+            init.body = body;
         } else {
-            init.body = JSON.stringify(options.body);
+            init.body = JSON.stringify(body);
         }
     }
 
