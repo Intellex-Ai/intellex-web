@@ -693,7 +693,7 @@ export const useStore = create<AppState>()(persist((set, get) => {
                     }
 
                     const verifiedTotp = factors?.totp?.find((f) => f.status === 'verified');
-                    const alreadyVerified = readMfaVerified(accessToken);
+                    const alreadyVerified = readMfaVerified(accessToken || undefined);
                     const needsMfa = Boolean(verifiedTotp) && !alreadyVerified;
 
                     if (needsMfa) {
@@ -775,7 +775,7 @@ export const useStore = create<AppState>()(persist((set, get) => {
                                     },
                                 });
                                 await syncSessionCookies({ accessToken, mfaPending: false });
-                                markMfaVerified(accessToken);
+                                markMfaVerified(accessToken || undefined);
                                 return;
                             }
                         }
@@ -807,7 +807,7 @@ export const useStore = create<AppState>()(persist((set, get) => {
                                 },
                             });
                             await syncSessionCookies({ accessToken, mfaPending: false });
-                            markMfaVerified(accessToken);
+                            markMfaVerified(accessToken || undefined);
                             return;
                         }
                         // If RLS blocked or no profile yet, fall through to metadata fallback.
@@ -831,7 +831,7 @@ export const useStore = create<AppState>()(persist((set, get) => {
                         },
                     });
                     await syncSessionCookies({ accessToken, mfaPending: false });
-                    markMfaVerified(accessToken);
+                    markMfaVerified(accessToken || undefined);
                 } catch (error) {
                     console.error('Failed to refresh user', error);
                     await syncSessionCookies({ accessToken: null, mfaPending: false });
