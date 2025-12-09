@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { useStore } from '@/store';
-import { setSessionCookie } from '@/lib/cookies';
+import { syncSessionCookies } from '@/lib/cookies';
 
 function AuthCallbackInner() {
     const router = useRouter();
@@ -34,7 +34,7 @@ function AuthCallbackInner() {
                     if (mfaRequired) {
                         router.replace(`/login?redirect=${encodeURIComponent(redirectTo)}&mfa=pending`);
                     } else if (user) {
-                        setSessionCookie(true);
+                        await syncSessionCookies({ accessToken: sessionData.session.access_token, mfaPending: false });
                         await new Promise(resolve => setTimeout(resolve, 100));
                         router.replace(redirectTo);
                     } else {
@@ -69,7 +69,11 @@ function AuthCallbackInner() {
                     // MFA is pending, redirect to login with the intended destination
                     router.replace(`/login?redirect=${encodeURIComponent(redirectTo)}&mfa=pending`);
                 } else if (user) {
-                    setSessionCookie(true);
+                    const refreshed = await supabase.auth.getSession();
+                    await syncSessionCookies({
+                        accessToken: refreshed.data?.session?.access_token ?? sessionData?.session?.access_token ?? null,
+                        mfaPending: false,
+                    });
                     await new Promise(resolve => setTimeout(resolve, 100));
                     router.replace(redirectTo);
                 } else {

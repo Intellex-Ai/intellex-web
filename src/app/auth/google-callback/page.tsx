@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { useStore } from '@/store';
-import { setSessionCookie } from '@/lib/cookies';
+import { syncSessionCookies } from '@/lib/cookies';
 
 function GoogleCallbackInner() {
     const router = useRouter();
@@ -63,7 +63,11 @@ function GoogleCallbackInner() {
                     router.replace(`/login?redirect=${encodeURIComponent(redirectTo)}&mfa=pending`);
                 } else if (user) {
                     // Explicitly set session cookie before redirect to ensure middleware sees it
-                    setSessionCookie(true);
+                    const current = await supabase.auth.getSession();
+                    await syncSessionCookies({
+                        accessToken: current.data?.session?.access_token ?? sessionData.access_token,
+                        mfaPending: false,
+                    });
                     // Small delay to ensure cookie is processed before navigation
                     await new Promise(resolve => setTimeout(resolve, 100));
                     router.replace(redirectTo);

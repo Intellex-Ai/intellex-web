@@ -4,6 +4,7 @@ import { ResearchProject } from '@/types';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import clsx from 'clsx';
+import { useToast } from '@/components/ui/ToastProvider';
 
 type ShareEntry = {
     id: string;
@@ -23,6 +24,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ project, isOpen, onClose
     const [access, setAccess] = useState<'viewer' | 'editor'>('viewer');
     const [shares, setShares] = useState<ShareEntry[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const { toast } = useToast();
 
     const loadShares = async () => {
         if (!project) return;
@@ -51,8 +53,18 @@ export const ShareModal: React.FC<ShareModalProps> = ({ project, isOpen, onClose
             setEmail('');
             setAccess('viewer');
             await loadShares();
+            toast({
+                variant: 'success',
+                title: 'Invite Sent',
+                message: `${email.trim()} now has ${access} access.`,
+            });
         } catch (err) {
             console.error('Failed to share project', err);
+            toast({
+                variant: 'error',
+                title: 'Share Failed',
+                message: err instanceof Error ? err.message : 'Unable to send invite.',
+            });
         } finally {
             setIsLoading(false);
         }
@@ -64,8 +76,18 @@ export const ShareModal: React.FC<ShareModalProps> = ({ project, isOpen, onClose
         try {
             await ProjectService.revokeShare(project.id, shareId);
             await loadShares();
+            toast({
+                variant: 'info',
+                title: 'Access Revoked',
+                message: 'Collaborator removed from this project.',
+            });
         } catch (err) {
             console.error('Failed to revoke share', err);
+            toast({
+                variant: 'error',
+                title: 'Revoke Failed',
+                message: err instanceof Error ? err.message : 'Unable to update access.',
+            });
         } finally {
             setIsLoading(false);
         }

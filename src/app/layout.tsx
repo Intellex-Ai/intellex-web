@@ -5,6 +5,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import { RecoveryRedirect } from "@/components/auth/RecoveryRedirect";
 import { PWAProvider } from "@/components/pwa/PWAProvider";
+import { ToastProvider } from "@/components/ui/ToastProvider";
 import { metadataBaseUrl } from "@/lib/site-url";
 
 const inter = Inter({
@@ -82,10 +83,12 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} ${jetbrainsMono.variable} antialiased`} suppressHydrationWarning>
         <PWAProvider>
-          <RecoveryRedirect />
-          {children}
-          <Analytics />
-          <SpeedInsights />
+          <ToastProvider>
+            <RecoveryRedirect />
+            {children}
+            <Analytics />
+            <SpeedInsights />
+          </ToastProvider>
         </PWAProvider>
       </body>
     </html>

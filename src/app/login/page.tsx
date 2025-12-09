@@ -6,7 +6,7 @@ import { useStore } from '@/store';
 import AuthLayout from '@/components/layout/AuthLayout';
 import AuthForm from '@/components/auth/AuthForm';
 import { supabase } from '@/lib/supabase';
-import { clearMfaPendingCookie, setSessionCookie } from '@/lib/cookies';
+import { clearMfaPendingCookie, syncSessionCookies } from '@/lib/cookies';
 
 function LoginContent() {
     const { user } = useStore();
@@ -45,8 +45,12 @@ function LoginContent() {
 
     useEffect(() => {
         if (user) {
-            setSessionCookie(true);
-            setTimeout(() => router.push(redirect), 100);
+            const syncSession = async () => {
+                const { data } = await supabase.auth.getSession();
+                await syncSessionCookies({ accessToken: data?.session?.access_token ?? null, mfaPending: false });
+                setTimeout(() => router.push(redirect), 100);
+            };
+            void syncSession();
         }
     }, [user, router, redirect]);
 

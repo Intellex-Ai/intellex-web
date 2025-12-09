@@ -5,6 +5,16 @@ const getSecurePart = () => {
     return typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : '';
 };
 
+type SessionSyncPayload = {
+    accessToken?: string | null;
+    mfaPending?: boolean;
+};
+
+const writeClientCookies = (loggedIn: boolean, mfaPending: boolean) => {
+    setSessionCookie(loggedIn && !mfaPending);
+    setMfaPendingCookie(mfaPending);
+};
+
 export const setSessionCookie = (isLoggedIn: boolean) => {
     if (typeof document === 'undefined') return;
     const securePart = getSecurePart();
@@ -31,4 +41,32 @@ export const clearMfaPendingCookie = () => {
 
 export const clearSessionCookie = () => {
     setSessionCookie(false);
+};
+
+export const syncSessionCookies = async ({ accessToken, mfaPending = false }: SessionSyncPayload) => {
+    const shouldSetSession = Boolean(accessToken) && !mfaPending;
+
+    try {
+        if (typeof fetch !== 'undefined') {
+            const method = accessToken ? 'POST' : 'DELETE';
+            const res = await fetch('/api/auth/session', {
+                method,
+                cache: 'no-store',
+                headers: accessToken
+                    ? {
+                        Authorization: `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json',
+                    }
+                    : undefined,
+                body: accessToken ? JSON.stringify({ mfaPending }) : undefined,
+            });
+            if (!res.ok) {
+                console.warn('Session cookie sync failed', await res.text().catch(() => ''));
+            }
+        }
+    } catch (err) {
+        console.warn('Session cookie sync error', err);
+    } finally {
+        writeClientCookies(shouldSetSession, mfaPending);
+    }
 };

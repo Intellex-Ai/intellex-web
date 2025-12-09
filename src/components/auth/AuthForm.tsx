@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/Input';
 import { Mail, Lock, Github, User as UserIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthSync } from '@/hooks/useAuthSync';
-import { setSessionCookie } from '@/lib/cookies';
+import { syncSessionCookies } from '@/lib/cookies';
+import { supabase } from '@/lib/supabase';
 
 
 interface AuthFormProps {
@@ -31,6 +32,11 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
 
     const { login, loginWithProvider, verifyMfa, mfaRequired, user } = useStore();
     const redirectDest = redirectTo || '/dashboard';
+    const syncSession = useCallback(async () => {
+        const { data } = await supabase.auth.getSession();
+        const token = data?.session?.access_token ?? null;
+        await syncSessionCookies({ accessToken: token, mfaPending: false });
+    }, []);
 
     // Sync auth state across tabs - when email is verified in another tab,
     // Supabase fires SIGNED_IN event which triggers refreshUser and updates the user state
@@ -40,11 +46,12 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
     useEffect(() => {
         if (user && !mfaRequired) {
             setError(null); // Clear any transient API/login error once we have a valid session.
-            setSessionCookie(true);
-            // Small delay to ensure cookie is processed before navigation
-            setTimeout(() => router.replace(redirectDest), 100);
+            void syncSession().then(() => {
+                // Small delay to ensure cookie is processed before navigation
+                setTimeout(() => router.replace(redirectDest), 100);
+            });
         }
-    }, [user, mfaRequired, router, redirectDest]);
+    }, [user, mfaRequired, router, redirectDest, syncSession]);
 
     // Detect a verified session created in another tab (e.g., after clicking the email link) and refresh only when no MFA is pending.
     useEffect(() => {
@@ -60,7 +67,7 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
             if (!active) return;
             const refreshedUser = useStore.getState().user;
             if (refreshedUser) {
-                setSessionCookie(true);
+                await syncSession();
                 setTimeout(() => router.replace(redirectDest), 100);
             }
         };
@@ -81,7 +88,7 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
                 window.removeEventListener('storage', onStorage);
             }
         };
-    }, [redirectDest, router]);
+    }, [redirectDest, router, syncSession]);
 
     const clearVerificationPoll = useCallback(() => {
         if (pollRef.current) {
@@ -107,7 +114,7 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
                         const success = await login(targetEmail, pwd, providedName, 'login');
                         const nextMfa = useStore.getState().mfaRequired;
                         if (success && !nextMfa) {
-                            setSessionCookie(true);
+                            await syncSession();
                             setTimeout(() => router.push(redirectDest), 100);
                         }
                     } catch (err) {
@@ -188,7 +195,7 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
             const success = await login(userEmail, safePassword, displayName, type);
             const nextMfa = useStore.getState().mfaRequired;
             if (success && !nextMfa) {
-                setSessionCookie(true);
+                await syncSession();
                 setTimeout(() => router.push(redirectDest), 100);
             }
         } catch (err: unknown) {
@@ -222,7 +229,7 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
         setLoading(true);
         try {
             await verifyMfa(trimmed);
-            setSessionCookie(true);
+            await syncSession();
             setTimeout(() => router.replace(redirectDest), 100);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to verify MFA code');

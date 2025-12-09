@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/Input';
 import { TextScramble } from '@/components/ui/TextScramble';
 import { UserService } from '@/services/api/user';
 import { ApiKeySummary } from '@/types';
+import { useToast } from '@/components/ui/ToastProvider';
 
 const timezones = [
     { label: 'UTC', value: 'UTC' },
@@ -23,6 +24,7 @@ const timezones = [
 export default function SettingsPage() {
     const { logout, user, timezone, setTimezone } = useStore();
     const router = useRouter();
+    const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
     const [apiKeys, setApiKeys] = useState({ openai: '', anthropic: '' });
     const [storedKeys, setStoredKeys] = useState<ApiKeySummary[]>([]);
@@ -46,8 +48,18 @@ export default function SettingsPage() {
             });
             setStoredKeys(res.keys);
             setApiKeys({ openai: '', anthropic: '' });
+            toast({
+                variant: 'success',
+                title: 'Keys Stored',
+                message: 'API keys encrypted and saved securely.',
+            });
         } catch (err) {
             console.error('Failed to save API keys', err);
+            toast({
+                variant: 'error',
+                title: 'Save Failed',
+                message: err instanceof Error ? err.message : 'Unable to store API keys.',
+            });
         } finally {
             setIsLoading(false);
         }

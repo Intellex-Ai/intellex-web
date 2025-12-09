@@ -8,7 +8,7 @@ import { ApiError } from '@/services/api/client';
 import { supabase } from '@/lib/supabase';
 import { API_BASE_URL } from '@/services/api/client';
 import { getSiteUrl } from '@/lib/site-url';
-import { setSessionCookie, setMfaPendingCookie } from '@/lib/cookies';
+import { syncSessionCookies } from '@/lib/cookies';
 import { extractAuthProfile } from '@/lib/auth-metadata';
 import { ActivityItem, ProjectStats } from '@/types';
 
@@ -40,8 +40,7 @@ const clearAuthState = (set: (partial: Partial<AppState>) => void) => {
 };
 
 const clearClientSession = (set: (partial: Partial<AppState>) => void) => {
-    setSessionCookie(false);
-    setMfaPendingCookie(false);
+    void syncSessionCookies({ accessToken: null, mfaPending: false });
     clearMfaVerified();
     clearPersistedStore();
     clearAuthState(set);
@@ -89,6 +88,16 @@ const clearPersistedStore = () => {
 };
 const getSiteBaseUrl = () => {
     return getSiteUrl();
+};
+
+const syncCookiesFromSession = async (mfaPending = false) => {
+    try {
+        const { data } = await supabase.auth.getSession();
+        const token = data?.session?.access_token ?? null;
+        await syncSessionCookies({ accessToken: token, mfaPending });
+    } catch {
+        await syncSessionCookies({ accessToken: null, mfaPending });
+    }
 };
 
 interface AppState {
@@ -171,8 +180,7 @@ export const useStore = create<AppState>()(persist((set, get) => {
                 });
                 clearMfaVerified();
                 // Always clear the auth cookies before attempting a new login to avoid stale access.
-                setSessionCookie(false);
-                setMfaPendingCookie(false);
+                await syncSessionCookies({ accessToken: null, mfaPending: false });
                 try {
                     if (!email || !password) {
                         throw new Error('Email and password are required');
@@ -273,7 +281,7 @@ export const useStore = create<AppState>()(persist((set, get) => {
                             }
                             // Always force verification before login; do not keep any session alive here.
                             await supabase.auth.signOut().catch(() => {});
-                            setSessionCookie(false);
+                            await syncSessionCookies({ accessToken: null, mfaPending: false });
                             const shouldResend = !data.session;
                             if (shouldResend) {
                                 await resendConfirmation();
@@ -305,8 +313,7 @@ export const useStore = create<AppState>()(persist((set, get) => {
                             throw challengeError || new Error('Unable to start MFA challenge.');
                         }
                         // Do NOT mark app session as active until MFA completes.
-                        setSessionCookie(false);
-                        setMfaPendingCookie(true);
+                        await syncCookiesFromSession(true);
                         set({
                             mfaRequired: true,
                             mfaChallengeId: challenge.id,
@@ -320,12 +327,12 @@ export const useStore = create<AppState>()(persist((set, get) => {
 
                     const user = await AuthService.login(email, fallbackName, supabaseUserId);
                     set({ user });
+                    await syncCookiesFromSession(false);
                     return true;
                 } catch (error) {
                     console.error('Login failed', error);
                     set({ user: null });
-                    setSessionCookie(false);
-                    setMfaPendingCookie(false);
+                    await syncSessionCookies({ accessToken: null, mfaPending: false });
                     if (error instanceof Error) {
                         if (error.message?.toLowerCase().includes('email not confirmed')) {
                             const baseUrl = getSiteBaseUrl();
@@ -345,8 +352,8 @@ export const useStore = create<AppState>()(persist((set, get) => {
                     }
                     throw new Error('Authentication failed');
                 } finally {
-                    const { user, mfaRequired } = get();
-                    setSessionCookie(Boolean(user) && !mfaRequired);
+                    const { mfaRequired } = get();
+                    await syncCookiesFromSession(Boolean(mfaRequired));
                     set({ isLoading: false });
                 }
             },
@@ -354,8 +361,7 @@ export const useStore = create<AppState>()(persist((set, get) => {
             loginWithProvider: async (provider: 'google' | 'github', redirectPath = '/dashboard') => {
                 set({ isLoading: true, mfaRequired: false, mfaChallengeId: null, mfaFactorId: null });
                 clearMfaVerified();
-                setSessionCookie(false);
-                setMfaPendingCookie(false);
+                await syncSessionCookies({ accessToken: null, mfaPending: false });
                 try {
                     const baseUrl = getSiteBaseUrl();
                     const origin = baseUrl || (typeof window !== 'undefined' ? window.location.origin : undefined);
@@ -392,7 +398,7 @@ export const useStore = create<AppState>()(persist((set, get) => {
             },
 
             verifyMfa: async (code: string) => {
-                const { mfaChallengeId, mfaFactorId, user } = get();
+                const { mfaChallengeId, mfaFactorId } = get();
                 if (!mfaChallengeId || !mfaFactorId) {
                     throw new Error('No MFA challenge in progress.');
                 }
@@ -410,8 +416,6 @@ export const useStore = create<AppState>()(persist((set, get) => {
                     const accessToken = refreshedSession?.session?.access_token;
                     // Mark this access token as fully verified before refreshing the user snapshot.
                     markMfaVerified(accessToken);
-                    // Clear MFA pending cookie on successful verification.
-                    setMfaPendingCookie(false);
                     set({
                         mfaRequired: false,
                         mfaChallengeId: null,
@@ -419,12 +423,10 @@ export const useStore = create<AppState>()(persist((set, get) => {
                     });
                     // After successful MFA, refresh user to hydrate the app state and cookie.
                     await get().refreshUser();
+                    await syncCookiesFromSession(false);
                 } catch (err) {
                     throw err instanceof Error ? err : new Error('MFA verification failed');
                 } finally {
-                    // If user was set during refresh, keep cookie in sync.
-                    const { user: refreshed } = get();
-                    setSessionCookie(Boolean(refreshed || user));
                     set({ isLoading: false });
                 }
             },
@@ -630,19 +632,20 @@ export const useStore = create<AppState>()(persist((set, get) => {
                         theme === 'light' || theme === 'dark' || theme === 'system' ? theme : 'system';
                     return { ...incoming, theme: normalizedTheme };
                 };
+                let accessToken: string | null = null;
                 try {
                     // Prime session first to avoid transient AuthSessionMissingError on reload, but do not set the app session cookie yet.
                     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
                     if (sessionError) {
                         console.error('Failed to get Supabase session', sessionError);
+                        await syncSessionCookies({ accessToken: null, mfaPending: false });
                         return;
                     }
+                    accessToken = sessionData?.session?.access_token ?? null;
                     const hasSession = Boolean(sessionData?.session);
-                    // Default to no app session cookie until we confirm MFA status.
-                    setSessionCookie(false);
                     if (!hasSession) {
                         clearMfaVerified();
-                        setMfaPendingCookie(false);
+                        await syncSessionCookies({ accessToken: null, mfaPending: false });
                         set({
                             user: null,
                             mfaRequired: false,
@@ -651,11 +654,11 @@ export const useStore = create<AppState>()(persist((set, get) => {
                         });
                         return;
                     }
-                    const accessToken = sessionData?.session?.access_token;
 
                     const { data: userData, error: userError } = await supabase.auth.getUser();
                     if (userError) {
                         console.error('Failed to get Supabase user', userError);
+                        await syncSessionCookies({ accessToken: null, mfaPending: false });
                         return;
                     }
 
@@ -665,6 +668,7 @@ export const useStore = create<AppState>()(persist((set, get) => {
                             user: null,
                             ...baseMfaState,
                         });
+                        await syncSessionCookies({ accessToken: null, mfaPending: false });
                         return;
                     }
 
@@ -677,8 +681,7 @@ export const useStore = create<AppState>()(persist((set, get) => {
                         console.error('Failed to list MFA factors', listError);
                         if (mfaRequired || mfaChallengeId) {
                             // Stay locked until we can conclusively determine MFA status.
-                            setSessionCookie(false);
-                            setMfaPendingCookie(true);
+                            await syncSessionCookies({ accessToken, mfaPending: true });
                             set({
                                 user: null,
                                 mfaRequired: true,
@@ -695,8 +698,7 @@ export const useStore = create<AppState>()(persist((set, get) => {
 
                     if (needsMfa) {
                         if (!verifiedTotp) {
-                            setSessionCookie(false);
-                            setMfaPendingCookie(true);
+                            await syncSessionCookies({ accessToken, mfaPending: true });
                             set({
                                 user: null,
                                 mfaRequired: true,
@@ -707,8 +709,7 @@ export const useStore = create<AppState>()(persist((set, get) => {
                         }
                         // If we already have a challenge in progress for this factor, keep the gate up.
                         if (mfaRequired && mfaChallengeId && mfaFactorId === verifiedTotp?.id) {
-                            setSessionCookie(false);
-                            setMfaPendingCookie(true);
+                            await syncSessionCookies({ accessToken, mfaPending: true });
                             set({
                                 user: null,
                                 mfaRequired: true,
@@ -723,8 +724,7 @@ export const useStore = create<AppState>()(persist((set, get) => {
                         });
                         if (challengeError || !challenge?.id) {
                             console.error('Unable to start MFA challenge', challengeError);
-                            setSessionCookie(false);
-                            setMfaPendingCookie(true);
+                            await syncSessionCookies({ accessToken, mfaPending: true });
                             set({
                                 user: null,
                                 mfaRequired: true,
@@ -734,8 +734,7 @@ export const useStore = create<AppState>()(persist((set, get) => {
                             return;
                         }
                         // Clear session cookie until MFA completes to keep middleware from granting access.
-                        setSessionCookie(false);
-                        setMfaPendingCookie(true);
+                        await syncSessionCookies({ accessToken, mfaPending: true });
                         set({
                             ...baseMfaState,
                             mfaRequired: true,
@@ -748,7 +747,6 @@ export const useStore = create<AppState>()(persist((set, get) => {
 
                     // If MFA was previously required but the token is now verified, clear the gate flags.
                     if ((mfaRequired || mfaChallengeId || mfaFactorId) && alreadyVerified) {
-                        setMfaPendingCookie(false);
                         set({
                             mfaRequired: false,
                             mfaChallengeId: null,
@@ -761,7 +759,7 @@ export const useStore = create<AppState>()(persist((set, get) => {
                     // Prefer canonical profile via service-role proxy to include avatar.
                     try {
                         const profileRes = await fetch(`/api/profile?email=${encodeURIComponent(authUser.email ?? '')}`);
-                        if (profileRes.ok) {
+                    if (profileRes.ok) {
                             const data = await profileRes.json();
                             const profile = (data?.user as ProfileRow | null) ?? null;
                             if (profile) {
@@ -776,8 +774,7 @@ export const useStore = create<AppState>()(persist((set, get) => {
                                         preferences: normalizePreferences(profile.preferences),
                                     },
                                 });
-                                setMfaPendingCookie(false);
-                                setSessionCookie(true);
+                                await syncSessionCookies({ accessToken, mfaPending: false });
                                 markMfaVerified(accessToken);
                                 return;
                             }
@@ -809,8 +806,7 @@ export const useStore = create<AppState>()(persist((set, get) => {
                                     preferences: normalizePreferences(profile.preferences),
                                 },
                             });
-                            setMfaPendingCookie(false);
-                            setSessionCookie(true);
+                            await syncSessionCookies({ accessToken, mfaPending: false });
                             markMfaVerified(accessToken);
                             return;
                         }
@@ -834,13 +830,11 @@ export const useStore = create<AppState>()(persist((set, get) => {
                             preferences: { theme: 'system' },
                         },
                     });
-                    setMfaPendingCookie(false);
-                    setSessionCookie(true);
+                    await syncSessionCookies({ accessToken, mfaPending: false });
                     markMfaVerified(accessToken);
                 } catch (error) {
                     console.error('Failed to refresh user', error);
-                    setSessionCookie(false);
-                    setMfaPendingCookie(false);
+                    await syncSessionCookies({ accessToken: null, mfaPending: false });
                     set({
                         user: null,
                         ...baseMfaState,

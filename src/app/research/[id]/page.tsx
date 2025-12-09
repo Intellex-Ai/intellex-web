@@ -129,7 +129,11 @@ export default function ResearchPage() {
                     "w-full lg:w-[400px] flex-shrink-0 border-l border-white/10 bg-black/50 backdrop-blur-sm transition-all duration-300",
                     mobileTab === 'plan' ? "block" : "hidden lg:block"
                 )}>
-                    <PlanViewer plan={activePlan} isLoading={isLoading} />
+                    <PlanViewer
+                        plan={activePlan}
+                        isLoading={isLoading}
+                        onShare={() => setIsShareOpen(true)}
+                    />
                 </div>
             </div>
 

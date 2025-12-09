@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { supabase } from '@/lib/supabase';
 import { Lock } from 'lucide-react';
-import { setSessionCookie } from '@/lib/cookies';
+import { syncSessionCookies } from '@/lib/cookies';
 
 function ResetPasswordContent() {
     const [password, setPassword] = useState('');
@@ -64,7 +64,11 @@ function ResetPasswordContent() {
                     }
                 }
 
-                setSessionCookie(true);
+                const current = await supabase.auth.getSession();
+                await syncSessionCookies({
+                    accessToken: current.data?.session?.access_token ?? accessToken ?? null,
+                    mfaPending: false,
+                });
                 setReady(true);
             } catch (err) {
                 setReady(false);
@@ -181,7 +185,7 @@ function ResetPasswordContent() {
                 throw updateError;
             }
             setStatus('Password updated. Redirecting to login...');
-            setSessionCookie(false);
+            await syncSessionCookies({ accessToken: null, mfaPending: false });
             setTimeout(() => router.push('/login'), 1200);
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Failed to update password.';

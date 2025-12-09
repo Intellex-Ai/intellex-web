@@ -1,14 +1,16 @@
 import React from 'react';
 import { ResearchPlan, ResearchPlanItem } from '@/types';
-import { CheckCircle2, Circle, Loader2, FileText } from 'lucide-react';
+import { CheckCircle2, Circle, Loader2, FileText, Share2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Button } from '@/components/ui/Button';
 
 interface PlanViewerProps {
     plan: ResearchPlan | null;
     isLoading?: boolean;
+    onShare?: () => void;
 }
 
-export const PlanViewer: React.FC<PlanViewerProps> = ({ plan, isLoading }) => {
+export const PlanViewer: React.FC<PlanViewerProps> = ({ plan, isLoading, onShare }) => {
     if (isLoading) {
         return (
             <div className="flex items-center justify-center h-full text-muted">
@@ -85,13 +87,28 @@ export const PlanViewer: React.FC<PlanViewerProps> = ({ plan, isLoading }) => {
     return (
         <div className="h-full overflow-y-auto p-6 bg-black/50 border-l border-white/10 custom-scrollbar">
             <div className="flex items-center justify-between mb-8 sticky top-0 bg-black/80 backdrop-blur-sm py-2 z-10 border-b border-white/10">
-                <h2 className="text-lg font-bold tracking-tight flex items-center gap-2 text-white uppercase font-mono">
+                <div className="flex items-center gap-2">
                     <FileText className="w-5 h-5 text-primary" />
-                    Research_Plan
-                </h2>
-                <span className="text-[10px] font-mono text-muted-foreground bg-white/5 px-2 py-1 rounded-sm border border-white/5">
-                    UPDATED: {new Date(plan.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
+                    <h2 className="text-lg font-bold tracking-tight text-white uppercase font-mono">
+                        Research_Plan
+                    </h2>
+                </div>
+                <div className="flex items-center gap-2">
+                    {onShare && (
+                        <Button
+                            size="xs"
+                            variant="secondary"
+                            onClick={onShare}
+                            className="inline-flex"
+                            leftIcon={<Share2 className="w-3.5 h-3.5" />}
+                        >
+                            Share
+                        </Button>
+                    )}
+                    <span className="text-[10px] font-mono text-muted-foreground bg-white/5 px-2 py-1 rounded-sm border border-white/5">
+                        UPDATED: {new Date(plan.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                </div>
             </div>
 
             <div className="space-y-1 pb-20">
