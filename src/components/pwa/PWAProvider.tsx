@@ -1,9 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import { InstallPrompt } from "./InstallPrompt";
-import { UpdatePrompt } from "./UpdatePrompt";
-import { OfflineIndicator } from "./OfflineIndicator";
 
 export function PWAProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -25,12 +22,5 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  return (
-    <>
-      {children}
-      <OfflineIndicator />
-      <InstallPrompt />
-      <UpdatePrompt />
-    </>
-  );
+  return <>{children}</>;
 }
