@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import clsx from 'clsx';
 import { AlertTriangle, CheckCircle2, Info } from 'lucide-react';
 
@@ -25,7 +25,7 @@ type ToastContextValue = {
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
-const ICONS: Record<ToastVariant, JSX.Element> = {
+const ICONS: Record<ToastVariant, ReactElement> = {
     success: <CheckCircle2 className="w-4 h-4" />,
     error: <AlertTriangle className="w-4 h-4" />,
     info: <Info className="w-4 h-4" />,
