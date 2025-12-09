@@ -5,6 +5,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import { RecoveryRedirect } from "@/components/auth/RecoveryRedirect";
 import { PWAProvider } from "@/components/pwa/PWAProvider";
+import { metadataBaseUrl } from "@/lib/site-url";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -38,7 +39,7 @@ export const metadata: Metadata = {
   formatDetection: {
     telephone: false,
   },
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3100"),
+  metadataBase: metadataBaseUrl,
   openGraph: {
     title: "Intellex - AI-Powered Intelligence",
     description: "The next generation of intelligence gathering.",

@@ -56,7 +56,9 @@ export const useAuthSync = () => {
         const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
             scheduleExpiryCheck(session);
 
-            if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
+            const eventName = event as string; // Supabase may emit undocumented strings; widen for safety.
+
+            if (event === 'SIGNED_OUT' || eventName === 'USER_DELETED') {
                 resetSession();
                 return;
             }
@@ -65,7 +67,6 @@ export const useAuthSync = () => {
                 return;
             }
 
-            const eventName = event as unknown as string;
             if (eventName === 'TOKEN_EXPIRED') {
                 resetSession();
             }

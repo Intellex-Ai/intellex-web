@@ -1,4 +1,22 @@
-const configuredSiteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3100').replace(/\/$/, '');
+const FALLBACK_SITE_URL = 'http://localhost:3100';
+
+const normalizeSiteUrl = (value?: string | null) => {
+    const trimmed = value?.trim();
+    if (!trimmed) return FALLBACK_SITE_URL;
+
+    const hasProtocol = /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(trimmed);
+    const candidate = hasProtocol ? trimmed : `https://${trimmed}`;
+
+    try {
+        return new URL(candidate).origin;
+    } catch (err) {
+        console.warn('Invalid NEXT_PUBLIC_SITE_URL provided; falling back to default', err);
+        return FALLBACK_SITE_URL;
+    }
+};
+
+const configuredSiteUrl = normalizeSiteUrl(process.env.NEXT_PUBLIC_SITE_URL);
+export const metadataBaseUrl = new URL(configuredSiteUrl);
 
 type RequestLike = {
     headers: Headers;
