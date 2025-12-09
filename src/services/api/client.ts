@@ -1,6 +1,8 @@
 // Always prefer same-origin API unless explicitly overridden by env to avoid CORS / SW issues.
 export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || '/api').replace(/\/$/, '');
 
+import { supabase } from '@/lib/supabase';
+
 export class ApiError extends Error {
     status: number;
     detail?: unknown;
@@ -18,12 +20,27 @@ type ApiRequestOptions = Omit<RequestInit, 'body'> & {
 
 const buildUrl = (path: string) => `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
 
+const getAccessToken = async (): Promise<string | null> => {
+    if (typeof window === 'undefined') return null;
+    try {
+        const { data } = await supabase.auth.getSession();
+        return data?.session?.access_token ?? null;
+    } catch {
+        return null;
+    }
+};
+
 async function request<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
     const url = buildUrl(path);
     const { body, headers: incomingHeaders, method, ...rest } = options;
     const headers: HeadersInit = {
         ...(incomingHeaders || {}),
     };
+
+    const accessToken = await getAccessToken();
+    if (accessToken && !(headers as Record<string, string>)['Authorization']) {
+        (headers as Record<string, string>)['Authorization'] = `Bearer ${accessToken}`;
+    }
 
     const hasBody = body !== undefined && body !== null;
     const shouldSetJson =
