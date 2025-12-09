@@ -38,6 +38,14 @@ const clearAuthState = (set: (partial: Partial<AppState>) => void) => {
     });
 };
 
+const clearClientSession = (set: (partial: Partial<AppState>) => void) => {
+    setSessionCookie(false);
+    setMfaPendingCookie(false);
+    clearMfaVerified();
+    clearPersistedStore();
+    clearAuthState(set);
+};
+
 const readMfaVerified = (token?: string) => {
     if (typeof window === 'undefined' || !token) return false;
     try {
@@ -420,15 +428,11 @@ export const useStore = create<AppState>()(persist((set, get) => {
                 } catch (err) {
                     console.warn('Supabase signOut failed', err);
                 }
-                setSessionCookie(false);
-                setMfaPendingCookie(false);
-                clearMfaVerified();
-                clearPersistedStore();
-                clearAuthState(set);
+                clearClientSession(set);
             },
 
             clearSession: () => {
-                clearAuthState(set);
+                clearClientSession(set);
             },
 
             setTimezone: (timezone: string) => {
