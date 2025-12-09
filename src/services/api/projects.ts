@@ -12,4 +12,9 @@ export const ProjectService = {
     getPlan: (projectId: string) => api.get<ResearchPlan>(`/projects/${projectId}/plan`),
     stats: (userId: string) => api.get<ProjectStats>('/projects/stats', { userId }),
     activity: (userId: string, limit = 10) => api.get<ActivityItem[]>('/projects/activity', { userId, limit }),
+    listShares: (projectId: string) => api.get(`/projects/${projectId}/shares`),
+    share: (projectId: string, payload: { email: string; access?: 'viewer' | 'editor' }) =>
+        api.post(`/projects/${projectId}/shares`, payload),
+    revokeShare: (projectId: string, shareId: string) =>
+        api.request<void>(`/projects/${projectId}/shares/${shareId}`, { method: 'DELETE' }),
 };

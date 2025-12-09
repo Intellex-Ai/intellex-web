@@ -84,3 +84,9 @@ export type ActivityItem = {
     timestamp: number | string;
     meta?: string;
 };
+
+export type ApiKeySummary = {
+    provider: 'openai' | 'anthropic' | string;
+    last4: string;
+    storedAt: number;
+};

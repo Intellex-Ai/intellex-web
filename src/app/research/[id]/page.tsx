@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { ArrowLeft, Share2, Settings, MessageSquare, FileText } from 'lucide-react';
 import Link from 'next/link';
 import clsx from 'clsx';
+import { ShareModal } from '@/components/projects/ShareModal';
 
 export default function ResearchPage() {
     const params = useParams();
@@ -22,6 +23,7 @@ export default function ResearchPage() {
     } = useStore();
 
     const [mobileTab, setMobileTab] = useState<'chat' | 'plan'>('chat');
+    const [isShareOpen, setIsShareOpen] = useState(false);
 
     useEffect(() => {
         if (params.id) {
@@ -99,7 +101,7 @@ export default function ResearchPage() {
                         </button>
                     </div>
 
-                    <Button variant="ghost" size="sm" className="p-2 h-auto hidden sm:flex">
+                    <Button variant="ghost" size="sm" className="p-2 h-auto hidden sm:flex" onClick={() => setIsShareOpen(true)}>
                         <Share2 size={18} />
                     </Button>
                     <Button variant="ghost" size="sm" className="p-2 h-auto">
@@ -130,6 +132,8 @@ export default function ResearchPage() {
                     <PlanViewer plan={activePlan} isLoading={isLoading} />
                 </div>
             </div>
+
+            <ShareModal project={activeProject} isOpen={isShareOpen} onClose={() => setIsShareOpen(false)} />
         </div>
     );
 }

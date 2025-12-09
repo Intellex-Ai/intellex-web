@@ -9,6 +9,7 @@ import { TextScramble } from '@/components/ui/TextScramble';
 import { Button } from '@/components/ui/Button';
 import { CreateProjectModal } from '@/components/dashboard/CreateProjectModal';
 import { ResearchProject } from '@/types';
+import { ShareModal } from '@/components/projects/ShareModal';
 
 export default function ProjectsPage() {
     const { projects, loadProjects, isLoading } = useStore();
@@ -16,6 +17,7 @@ export default function ProjectsPage() {
     const [filter, setFilter] = useState<'all' | 'draft' | 'active' | 'completed' | 'archived'>('all');
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [editingProject, setEditingProject] = useState<ResearchProject | null>(null);
+    const [shareProject, setShareProject] = useState<ResearchProject | null>(null);
 
     useEffect(() => {
         loadProjects();
@@ -103,6 +105,7 @@ export default function ProjectsPage() {
                             <ProjectCard
                                 key={project.id}
                                 project={project}
+                                onShare={(proj) => setShareProject(proj)}
                                 onEdit={(proj) => {
                                     setEditingProject(proj);
                                     setIsCreateModalOpen(true);
@@ -135,6 +138,12 @@ export default function ProjectsPage() {
                     setEditingProject(null);
                 }}
                 project={editingProject}
+            />
+
+            <ShareModal
+                project={shareProject}
+                isOpen={Boolean(shareProject)}
+                onClose={() => setShareProject(null)}
             />
         </div >
     );

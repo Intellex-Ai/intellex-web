@@ -7,12 +7,13 @@ interface ProjectCardProps {
     project: ResearchProject;
     onEdit?: (project: ResearchProject) => void;
     onDelete?: (project: ResearchProject) => void;
+    onShare?: (project: ResearchProject) => void;
 }
 
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 
-export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onDelete }) => {
+export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onDelete, onShare }) => {
     const getStatusIcon = (status: string) => {
         switch (status) {
             case 'active':
@@ -64,8 +65,16 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onDel
                         <span className="text-[10px] text-muted font-mono tracking-wider uppercase">
                             {`// ${formatDate(project.updatedAt)}`}
                         </span>
-                        {(onEdit || onDelete) && (
+                        {(onShare || onEdit || onDelete) && (
                             <div className="flex gap-1">
+                                {onShare && (
+                                    <button
+                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onShare(project); }}
+                                        className="px-2 py-1 text-[10px] font-mono uppercase tracking-wide border border-white/10 text-white hover:border-primary/40 hover:text-primary transition-colors"
+                                    >
+                                        Share
+                                    </button>
+                                )}
                                 {onEdit && (
                                     <button
                                         onClick={handleEdit}

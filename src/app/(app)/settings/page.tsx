@@ -8,6 +8,8 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { TextScramble } from '@/components/ui/TextScramble';
+import { UserService } from '@/services/api/user';
+import { ApiKeySummary } from '@/types';
 
 const timezones = [
     { label: 'UTC', value: 'UTC' },
@@ -23,6 +25,7 @@ export default function SettingsPage() {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [apiKeys, setApiKeys] = useState({ openai: '', anthropic: '' });
+    const [storedKeys, setStoredKeys] = useState<ApiKeySummary[]>([]);
     const [deviceInfo, setDeviceInfo] = useState<{ ua: string; platform: string; current: boolean; lastSignIn?: string | null }[]>([]);
     const [deviceError, setDeviceError] = useState<string | null>(null);
 
@@ -31,14 +34,36 @@ export default function SettingsPage() {
         router.push('/');
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
+        if (!apiKeys.openai && !apiKeys.anthropic) {
+            return;
+        }
         setIsLoading(true);
-        // Simulate save
-        setTimeout(() => {
+        try {
+            const res = await UserService.saveApiKeys({
+                ...(apiKeys.openai ? { openai: apiKeys.openai } : {}),
+                ...(apiKeys.anthropic ? { anthropic: apiKeys.anthropic } : {}),
+            });
+            setStoredKeys(res.keys);
+            setApiKeys({ openai: '', anthropic: '' });
+        } catch (err) {
+            console.error('Failed to save API keys', err);
+        } finally {
             setIsLoading(false);
-            // In a real app, we'd show a toast here
-        }, 1000);
+        }
     };
+
+    useEffect(() => {
+        const load = async () => {
+            try {
+                const res = await UserService.getApiKeys();
+                setStoredKeys(res.keys);
+            } catch (err) {
+                console.warn('No stored API keys', err);
+            }
+        };
+        void load();
+    }, []);
 
     const uaSummary = useMemo(() => {
         if (typeof navigator === 'undefined') return { ua: 'Unknown', platform: 'Unknown device' };
@@ -118,8 +143,18 @@ export default function SettingsPage() {
             content: (
                 <div className="space-y-6">
                     <p className="text-xs text-muted font-mono mb-4">
-                        Provide your API keys to enable LLM capabilities. Keys are stored locally on your device.
+                        Provide your API keys to enable LLM capabilities. Keys are encrypted and stored server-side.
                     </p>
+                    {storedKeys.length > 0 && (
+                        <div className="space-y-2 text-xs text-muted font-mono">
+                            {storedKeys.map((k) => (
+                                <div key={k.provider} className="flex items-center justify-between border border-white/10 p-2 bg-black/50">
+                                    <span className="uppercase tracking-wider">{k.provider}</span>
+                                    <span className="text-white">••••{k.last4}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                     <div className="space-y-4">
                         <div className="space-y-2">
                             <label className="text-xs font-mono text-primary uppercase tracking-wider">OpenAI API Key</label>
