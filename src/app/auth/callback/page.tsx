@@ -69,9 +69,9 @@ function AuthCallbackInner() {
                     // MFA is pending, redirect to login with the intended destination
                     router.replace(`/login?redirect=${encodeURIComponent(redirectTo)}&mfa=pending`);
                 } else if (user) {
-                    const refreshed = await supabase.auth.getSession();
+                    const { data: refreshed } = await supabase.auth.getSession();
                     await syncSessionCookies({
-                        accessToken: refreshed.data?.session?.access_token ?? sessionData?.session?.access_token ?? null,
+                        accessToken: refreshed?.session?.access_token ?? null,
                         mfaPending: false,
                     });
                     await new Promise(resolve => setTimeout(resolve, 100));
