@@ -10,6 +10,7 @@ import { API_BASE_URL } from '@/services/api/client';
 import { getSiteUrl } from '@/lib/site-url';
 import { setSessionCookie, setMfaPendingCookie } from '@/lib/cookies';
 import { extractAuthProfile } from '@/lib/auth-metadata';
+import { ActivityItem, ProjectStats } from '@/types';
 
 type ProfileRow = {
     id: string;
@@ -102,6 +103,8 @@ interface AppState {
     mfaChallengeId: string | null;
     mfaFactorId: string | null;
     timezone: string;
+    projectStats: ProjectStats | null;
+    activityFeed: ActivityItem[];
 
     // Actions
     login: (email: string, password: string, name?: string, mode?: 'login' | 'signup') => Promise<boolean>;
@@ -109,6 +112,8 @@ interface AppState {
     verifyMfa: (code: string) => Promise<void>;
     logout: () => Promise<void>;
     loadProjects: () => Promise<void>;
+    loadProjectStats: () => Promise<void>;
+    loadActivityFeed: (limit?: number) => Promise<void>;
     createProject: (title: string, goal: string) => Promise<ResearchProject | null>;
     updateProject: (projectId: string, payload: { title?: string; goal?: string; status?: ResearchProject['status'] }) => Promise<ResearchProject | null>;
     deleteProject: (projectId: string) => Promise<boolean>;
@@ -155,6 +160,8 @@ export const useStore = create<AppState>()(persist((set, get) => {
         isHydrated: false,
         ...baseMfaState,
         timezone: 'UTC',
+        projectStats: null,
+        activityFeed: [],
 
             login: async (email: string, password: string, name?: string, mode: 'login' | 'signup' = 'login'): Promise<boolean> => {
                 set({
@@ -454,6 +461,28 @@ export const useStore = create<AppState>()(persist((set, get) => {
                     set({ projects: [] });
                 } finally {
                     set({ isLoading: false });
+                }
+            },
+
+            loadProjectStats: async () => {
+                try {
+                    const apiUser = await ensureBackendUser();
+                    const stats = await ProjectService.stats(apiUser.id);
+                    set({ projectStats: stats });
+                } catch (error) {
+                    console.error('Failed to load project stats', error);
+                    set({ projectStats: null });
+                }
+            },
+
+            loadActivityFeed: async (limit = 10) => {
+                try {
+                    const apiUser = await ensureBackendUser();
+                    const activity = await ProjectService.activity(apiUser.id, limit);
+                    set({ activityFeed: activity });
+                } catch (error) {
+                    console.error('Failed to load activity feed', error);
+                    set({ activityFeed: [] });
                 }
             },
 

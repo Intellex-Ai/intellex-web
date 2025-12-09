@@ -1,4 +1,4 @@
-import { ResearchPlan, ResearchProject } from '@/types';
+import { ActivityItem, ProjectStats, ResearchPlan, ResearchProject } from '@/types';
 import { api } from './client';
 
 export const ProjectService = {
@@ -10,4 +10,6 @@ export const ProjectService = {
         api.request<ResearchProject>(`/projects/${projectId}`, { method: 'PATCH', body: payload }),
     delete: (projectId: string) => api.request<void>(`/projects/${projectId}`, { method: 'DELETE' }),
     getPlan: (projectId: string) => api.get<ResearchPlan>(`/projects/${projectId}/plan`),
+    stats: (userId: string) => api.get<ProjectStats>('/projects/stats', { userId }),
+    activity: (userId: string, limit = 10) => api.get<ActivityItem[]>('/projects/activity', { userId, limit }),
 };

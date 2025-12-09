@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useStore } from '@/store';
 import { StatsCard } from '@/components/dashboard/StatsCard';
-import { ActivityFeed, ActivityItem } from '@/components/dashboard/ActivityFeed';
+import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
 import { ProjectCard } from '@/components/dashboard/ProjectCard';
 import { Plus, ArrowRight, Folder, CheckCircle2, Activity as ActivityIcon } from 'lucide-react';
 import Link from 'next/link';
@@ -12,23 +12,31 @@ import { Button } from '@/components/ui/Button';
 import { CreateProjectModal } from '@/components/dashboard/CreateProjectModal';
 
 export default function DashboardPage() {
-    const { user, projects, loadProjects, refreshUser } = useStore();
+    const {
+        user,
+        projects,
+        projectStats,
+        activityFeed,
+        loadProjects,
+        loadProjectStats,
+        loadActivityFeed,
+        refreshUser
+    } = useStore();
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
     useEffect(() => {
         refreshUser();
         loadProjects();
-    }, [loadProjects, refreshUser]);
+        loadProjectStats();
+        loadActivityFeed(8);
+    }, [loadActivityFeed, loadProjectStats, loadProjects, refreshUser]);
 
     const recentProjects = projects.slice(0, 2);
 
-    // Capture a stable render timestamp without tripping purity rule.
-    const [nowTs] = useState(() => Date.now());
-
     const { stats } = useMemo(() => {
-        const activeProjects = projects.filter((p) => p.status === 'active').length;
-        const completedProjects = projects.filter((p) => p.status === 'completed').length;
-        const updatedLastDay = projects.filter((p) => nowTs - p.updatedAt < 24 * 60 * 60 * 1000).length;
+        const activeProjects = projectStats?.activeProjects ?? 0;
+        const completedProjects = projectStats?.completedProjects ?? 0;
+        const updatedLastDay = projectStats?.updatedLastDay ?? 0;
 
         const statsData = [
             { label: 'Active Projects', value: activeProjects, icon: Folder, trend: { value: activeProjects, isPositive: true } },
@@ -37,29 +45,7 @@ export default function DashboardPage() {
         ];
 
         return { stats: statsData };
-    }, [projects, nowTs]);
-
-    const activities: ActivityItem[] = useMemo(() => {
-        return projects
-            .map((project) => {
-                const isCompleted = project.status === 'completed';
-                const sortKey = project.updatedAt || project.createdAt || nowTs;
-                const timestamp = new Date(sortKey);
-                const item: ActivityItem = {
-                    id: project.id,
-                    type: isCompleted ? 'research_completed' : 'project_created',
-                    description: isCompleted
-                        ? `Research completed: "${project.title}"`
-                        : `Project updated: "${project.title}"`,
-                    timestamp: timestamp.toLocaleString(),
-                    meta: `Last updated ${timestamp.toLocaleDateString()}`,
-                };
-                return { sortKey, item };
-            })
-            .sort((a, b) => b.sortKey - a.sortKey)
-            .slice(0, 6)
-            .map(({ item }) => item);
-    }, [projects, nowTs]);
+    }, [projectStats]);
 
     return (
         <div className="min-h-screen bg-black animate-in fade-in duration-700 relative overflow-hidden">
@@ -139,7 +125,7 @@ export default function DashboardPage() {
 
                     {/* Right Column: Activity Feed */}
                     <div className="lg:col-span-1">
-                        <ActivityFeed activities={activities} />
+                        <ActivityFeed activities={activityFeed} />
                     </div>
                 </div>
             </div>

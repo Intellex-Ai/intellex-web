@@ -69,3 +69,18 @@ export type ResearchPlan = {
     items: ResearchPlanItem[];
     updatedAt: number;
 };
+
+export type ProjectStats = {
+    totalProjects: number;
+    activeProjects: number;
+    completedProjects: number;
+    updatedLastDay: number;
+};
+
+export type ActivityItem = {
+    id: string;
+    type: 'project_created' | 'project_updated' | 'research_completed' | 'comment_added' | 'system_alert';
+    description: string;
+    timestamp: number | string;
+    meta?: string;
+};

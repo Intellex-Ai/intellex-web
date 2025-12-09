@@ -1,14 +1,7 @@
 import React from 'react';
 import { FileText, GitCommit, MessageSquare, Zap } from 'lucide-react';
 import clsx from 'clsx';
-
-export interface ActivityItem {
-    id: string;
-    type: 'project_created' | 'research_completed' | 'comment_added' | 'system_alert';
-    description: string;
-    timestamp: string;
-    meta?: string;
-}
+import { ActivityItem } from '@/types';
 
 interface ActivityFeedProps {
     activities: ActivityItem[];
@@ -17,6 +10,7 @@ interface ActivityFeedProps {
 const getActivityIcon = (type: ActivityItem['type']) => {
     switch (type) {
         case 'project_created': return <Zap size={14} />;
+        case 'project_updated': return <Zap size={14} />;
         case 'research_completed': return <FileText size={14} />;
         case 'comment_added': return <MessageSquare size={14} />;
         case 'system_alert': return <GitCommit size={14} />;
@@ -26,6 +20,7 @@ const getActivityIcon = (type: ActivityItem['type']) => {
 const getActivityColor = (type: ActivityItem['type']) => {
     switch (type) {
         case 'project_created': return 'text-primary bg-primary/10 border-primary/20';
+        case 'project_updated': return 'text-primary bg-primary/10 border-primary/20';
         case 'research_completed': return 'text-success bg-success/10 border-success/20';
         case 'comment_added': return 'text-blue-400 bg-blue-400/10 border-blue-400/20';
         case 'system_alert': return 'text-muted-foreground bg-white/5 border-white/10';
@@ -47,6 +42,12 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({ activities }) => {
                 <div className="absolute left-[15px] top-2 bottom-2 w-[1px] bg-gradient-to-b from-white/10 via-white/5 to-transparent" />
 
                 {activities.map((item, index) => (
+                    (() => {
+                        const ts =
+                            typeof item.timestamp === 'number'
+                                ? new Date(item.timestamp).toLocaleString()
+                                : item.timestamp;
+                        return (
                     <div
                         key={item.id}
                         className="relative pl-10 group animate-in fade-in slide-in-from-left-4 fill-mode-backwards"
@@ -64,7 +65,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({ activities }) => {
                         {/* Content */}
                         <div className="flex flex-col">
                             <span className="text-xs font-mono text-muted-foreground mb-1">
-                                {item.timestamp}
+                                {ts}
                             </span>
                             <p className="text-sm text-white font-medium">
                                 {item.description}
@@ -76,6 +77,8 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({ activities }) => {
                             )}
                         </div>
                     </div>
+                        );
+                    })()
                 ))}
             </div>
         </div>
