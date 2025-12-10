@@ -44,7 +44,13 @@ export default function SettingsPage() {
     const handleSignOutEverywhere = async () => {
         setRevokingDevices(true);
         try {
-            await DeviceService.revoke({ scope: 'all' });
+            const res = await DeviceService.revoke({ scope: 'all' });
+            await refreshDevices();
+            toast({
+                variant: 'success',
+                title: 'Signed out everywhere',
+                message: `${res.revoked} devices marked revoked. ${res.tokensRevoked} tokens invalidated.`,
+            });
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Failed to sign out on all devices';
             setDeviceError(message);
@@ -130,12 +136,12 @@ export default function SettingsPage() {
         }
         setRevokingDevices(true);
         try {
-            await DeviceService.revoke({ scope: 'others', deviceId: currentDeviceId });
+            const res = await DeviceService.revoke({ scope: 'others', deviceId: currentDeviceId });
             await refreshDevices();
             toast({
                 variant: 'success',
                 title: 'Signed out elsewhere',
-                message: 'All other devices have been revoked.',
+                message: `${res.revoked} devices revoked. ${res.tokensRevoked} tokens invalidated.`,
             });
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Failed to sign out other devices';

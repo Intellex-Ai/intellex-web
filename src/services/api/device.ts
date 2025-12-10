@@ -5,6 +5,10 @@ import { collectDeviceProfile } from '@/lib/device';
 type DeviceListResponse = {
     devices: DeviceRecord[];
 };
+type DeviceRevokeResponse = {
+    revoked: number;
+    tokensRevoked: number;
+};
 
 export const DeviceService = {
     list: () => api.get<DeviceListResponse>('/auth/devices'),
@@ -22,5 +26,5 @@ export const DeviceService = {
         return api.post<DeviceRecord>('/auth/devices', body);
     },
     revoke: (payload: { scope: 'single' | 'others' | 'all'; deviceId?: string }) =>
-        api.post<{ revoked: number }>('/auth/devices/revoke', payload),
+        api.post<DeviceRevokeResponse>('/auth/devices/revoke', payload),
 };

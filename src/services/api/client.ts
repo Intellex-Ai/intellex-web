@@ -2,6 +2,7 @@
 export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || '/api').replace(/\/$/, '');
 
 import { supabase } from '@/lib/supabase';
+import { markRemoteSignOutFlag } from '@/lib/session';
 import { getDeviceHeaders } from '@/lib/device';
 
 export class ApiError extends Error {
@@ -28,6 +29,26 @@ const getAccessToken = async (): Promise<string | null> => {
         return data?.session?.access_token ?? null;
     } catch {
         return null;
+    }
+};
+
+const handleRemoteSignOut = async (reason?: string) => {
+    if (typeof window === 'undefined') return;
+    try {
+        await supabase.auth.signOut();
+    } catch {
+        // non-blocking
+    }
+    try {
+        await fetch('/api/auth/session', { method: 'DELETE' });
+    } catch {
+        // non-blocking
+    }
+    markRemoteSignOutFlag(reason);
+    try {
+        window.location.assign('/session-ended');
+    } catch {
+        // non-blocking
     }
 };
 
@@ -101,6 +122,13 @@ async function request<T>(path: string, options: ApiRequestOptions = {}): Promis
             detailMessage ||
             response.statusText ||
             'Request failed';
+
+        if (typeof window !== 'undefined' && (response.status === 401 || response.status === 403)) {
+            const lowered = (message || '').toLowerCase();
+            if (lowered.includes('signed out') || lowered.includes('revoked')) {
+                void handleRemoteSignOut(message);
+            }
+        }
         throw new ApiError(message, response.status, data);
     }
 
