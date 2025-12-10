@@ -30,7 +30,6 @@ const supabaseHost = supabaseUrl ? new URL(supabaseUrl).hostname : undefined;
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
-  turbopack: {},
   async headers() {
     return [
       {

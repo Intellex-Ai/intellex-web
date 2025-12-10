@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useStore } from '@/store';
 import { Shield, LogOut, Moon, Monitor, Key, Globe, Clock, Save, MonitorSmartphone } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { TextScramble } from '@/components/ui/TextScramble';
+import { useTheme } from '@/components/providers/ThemeProvider';
 import { UserService } from '@/services/api/user';
 import { DeviceService } from '@/services/api/device';
 import { ApiKeySummary, DeviceRecord } from '@/types';
@@ -25,6 +26,7 @@ const timezones = [
 
 export default function SettingsPage() {
     const { logout, user, timezone, setTimezone } = useStore();
+    const { setTheme, resolvedTheme } = useTheme();
     const router = useRouter();
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
@@ -35,7 +37,12 @@ export default function SettingsPage() {
     const [devicesLoading, setDevicesLoading] = useState(false);
     const [revokingDevices, setRevokingDevices] = useState(false);
     const [targetDevice, setTargetDevice] = useState<string | null>(null);
-    const currentDeviceId = useMemo(() => getDeviceId(), []);
+    const [clientDeviceId, setClientDeviceId] = useState<string | null>(null);
+    const [deviceHydrated, setDeviceHydrated] = useState(false);
+    useEffect(() => {
+        setClientDeviceId(getDeviceId());
+        setDeviceHydrated(true);
+    }, []);
 
     const handleSignOut = async () => {
         await logout();
@@ -180,13 +187,13 @@ export default function SettingsPage() {
     };
 
     const handleSignOutOthers = async () => {
-        if (!currentDeviceId) {
+        if (!clientDeviceId) {
             setDeviceError('Unable to determine current device. Please reload and try again.');
             return;
         }
         setRevokingDevices(true);
         try {
-            const res = await DeviceService.revoke({ scope: 'others', deviceId: currentDeviceId });
+            const res = await DeviceService.revoke({ scope: 'others', deviceId: clientDeviceId });
             await refreshDevices();
             toast({
                 variant: 'success',
@@ -315,12 +322,22 @@ export default function SettingsPage() {
                             <Moon size={18} className="text-muted" />
                             <div>
                                 <h4 className="text-sm font-bold text-white font-mono uppercase">Theme</h4>
-                                <p className="text-xs text-muted font-mono">System Default</p>
+                                <p className="text-xs text-muted font-mono">{resolvedTheme === 'dark' ? 'Dark Mode' : 'Light Mode'}</p>
                             </div>
                         </div>
                         <div className="flex bg-black border border-white/10 p-1 rounded-none">
-                            <button className="px-3 py-1 text-[10px] font-mono uppercase bg-white/10 text-white rounded-none">Dark</button>
-                            <button className="px-3 py-1 text-[10px] font-mono uppercase text-muted hover:text-white">Light</button>
+                            <button
+                                onClick={() => setTheme('dark')}
+                                className={`px-3 py-1 text-[10px] font-mono uppercase rounded-none transition-colors ${resolvedTheme === 'dark' ? 'bg-white/10 text-white' : 'text-muted hover:text-white'}`}
+                            >
+                                Dark
+                            </button>
+                            <button
+                                onClick={() => setTheme('light')}
+                                className={`px-3 py-1 text-[10px] font-mono uppercase rounded-none transition-colors ${resolvedTheme === 'light' ? 'bg-white/10 text-white' : 'text-muted hover:text-white'}`}
+                            >
+                                Light
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -352,7 +369,7 @@ export default function SettingsPage() {
                                     size="xs"
                                     variant="ghost"
                                     onClick={handleSignOutOthers}
-                                    disabled={!currentDeviceId}
+                                    disabled={!deviceHydrated || !clientDeviceId}
                                     isLoading={revokingDevices}
                                     leftIcon={<LogOut size={14} />}
                                 >
@@ -362,7 +379,7 @@ export default function SettingsPage() {
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {deviceInfo.map((device) => {
-                                const isCurrent = Boolean(currentDeviceId && device.deviceId === currentDeviceId);
+                                const isCurrent = deviceHydrated && Boolean(clientDeviceId && device.deviceId === clientDeviceId);
                                 const revoked = Boolean(device.revokedAt);
                                 const location = [device.city, device.region].filter(Boolean).join(', ') || device.ip;
                                 return (
@@ -406,7 +423,7 @@ export default function SettingsPage() {
                                             <Button
                                                 size="xs"
                                                 variant="secondary"
-                                                disabled={isCurrent || targetDevice === device.deviceId}
+                                                disabled={!deviceHydrated || isCurrent || targetDevice === device.deviceId}
                                                 isLoading={targetDevice === device.deviceId && revokingDevices}
                                                 onClick={() => handleRevokeDevice(device.deviceId)}
                                             >
@@ -415,7 +432,7 @@ export default function SettingsPage() {
                                             <Button
                                                 size="xs"
                                                 variant="ghost"
-                                                disabled={isCurrent || targetDevice === device.deviceId}
+                                                disabled={!deviceHydrated || isCurrent || targetDevice === device.deviceId}
                                                 isLoading={targetDevice === device.deviceId && !revokingDevices && targetDevice !== null}
                                                 onClick={() => handleRemoveDevice(device.deviceId)}
                                             >

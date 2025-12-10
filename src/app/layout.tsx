@@ -80,8 +80,30 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Inline script to apply theme BEFORE React hydrates (prevents flash)
+  const themeScript = `
+    (function() {
+      try {
+        var path = window.location.pathname || '';
+        var isAppRoute = /^\\/(dashboard|projects|research|settings|profile)(\\b|\\/)/.test(path);
+        if (!isAppRoute) return;
+        var theme = localStorage.getItem('intellex:theme');
+        if (theme === 'light') {
+          document.documentElement.classList.add('light');
+        } else if (theme === 'system') {
+          if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+            document.documentElement.classList.add('light');
+          }
+        }
+      } catch (e) {}
+    })();
+  `;
+
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body className={`${inter.variable} ${jetbrainsMono.variable} antialiased`} suppressHydrationWarning>
         <PWAProvider>
           <ToastProvider>
