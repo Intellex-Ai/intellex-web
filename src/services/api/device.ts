@@ -9,6 +9,7 @@ type DeviceRevokeResponse = {
     revoked: number;
     tokensRevoked: number;
 };
+type DeviceDeleteResponse = { deleted: boolean };
 
 export const DeviceService = {
     list: () => api.get<DeviceListResponse>('/auth/devices'),
@@ -27,4 +28,5 @@ export const DeviceService = {
     },
     revoke: (payload: { scope: 'single' | 'others' | 'all'; deviceId?: string }) =>
         api.post<DeviceRevokeResponse>('/auth/devices/revoke', payload),
+    remove: (deviceId: string) => api.del<DeviceDeleteResponse>(`/auth/devices/${encodeURIComponent(deviceId)}`),
 };

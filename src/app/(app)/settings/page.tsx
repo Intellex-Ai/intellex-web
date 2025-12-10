@@ -34,6 +34,7 @@ export default function SettingsPage() {
     const [deviceError, setDeviceError] = useState<string | null>(null);
     const [devicesLoading, setDevicesLoading] = useState(false);
     const [revokingDevices, setRevokingDevices] = useState(false);
+    const [targetDevice, setTargetDevice] = useState<string | null>(null);
     const currentDeviceId = useMemo(() => getDeviceId(), []);
 
     const handleSignOut = async () => {
@@ -128,6 +129,55 @@ export default function SettingsPage() {
             setDevicesLoading(false);
         }
     }, [user?.id]);
+
+    const handleRevokeDevice = async (deviceId: string) => {
+        setTargetDevice(deviceId);
+        try {
+            const res = await DeviceService.revoke({ scope: 'single', deviceId });
+            await refreshDevices();
+            toast({
+                variant: 'success',
+                title: 'Device signed out',
+                message: `${res.revoked} device revoked.`,
+            });
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to sign out device';
+            setDeviceError(message);
+            toast({
+                variant: 'error',
+                title: 'Sign-out failed',
+                message,
+            });
+        } finally {
+            setTargetDevice(null);
+        }
+    };
+
+    const handleRemoveDevice = async (deviceId: string) => {
+        setTargetDevice(deviceId);
+        try {
+            const res = await DeviceService.remove(deviceId);
+            if (!res.deleted) {
+                throw new Error('Device not removed');
+            }
+            await refreshDevices();
+            toast({
+                variant: 'success',
+                title: 'Device removed',
+                message: 'The device record has been deleted.',
+            });
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to remove device';
+            setDeviceError(message);
+            toast({
+                variant: 'error',
+                title: 'Remove failed',
+                message,
+            });
+        } finally {
+            setTargetDevice(null);
+        }
+    };
 
     const handleSignOutOthers = async () => {
         if (!currentDeviceId) {
@@ -323,7 +373,7 @@ export default function SettingsPage() {
                                         <div className="w-10 h-10 bg-primary/10 text-primary flex items-center justify-center rounded-sm">
                                             <MonitorSmartphone size={18} />
                                         </div>
-                                        <div className="space-y-1 min-w-0">
+                                        <div className="space-y-1 min-w-0 flex-1">
                                             <p className="text-sm text-white font-mono truncate">{device.platform || 'Unknown device'}</p>
                                             <p className="text-xs text-muted font-mono truncate">{device.userAgent || 'No user agent'}</p>
                                             <p className="text-xs text-muted font-mono">Last seen: {formatTimestamp(device.lastSeenAt)}</p>
@@ -351,6 +401,26 @@ export default function SettingsPage() {
                                                     </span>
                                                 )}
                                             </div>
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                            <Button
+                                                size="xs"
+                                                variant="secondary"
+                                                disabled={isCurrent || targetDevice === device.deviceId}
+                                                isLoading={targetDevice === device.deviceId && revokingDevices}
+                                                onClick={() => handleRevokeDevice(device.deviceId)}
+                                            >
+                                                SIGN_OUT
+                                            </Button>
+                                            <Button
+                                                size="xs"
+                                                variant="ghost"
+                                                disabled={isCurrent || targetDevice === device.deviceId}
+                                                isLoading={targetDevice === device.deviceId && !revokingDevices && targetDevice !== null}
+                                                onClick={() => handleRemoveDevice(device.deviceId)}
+                                            >
+                                                REMOVE
+                                            </Button>
                                         </div>
                                     </div>
                                 );
