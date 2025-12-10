@@ -336,10 +336,12 @@ export const useStore = create<AppState>()(persist((set, get) => {
                         return false;
                     }
 
+                    // Clear any revoked flag for this device before provisioning user.
+                    await touchDevice(true);
                     const user = await AuthService.login(email, fallbackName, supabaseUserId);
                     set({ user });
                     await syncCookiesFromSession(false);
-                    void touchDevice(true);
+                    void touchDevice(false);
                     return true;
                 } catch (error) {
                     console.error('Login failed', error);
