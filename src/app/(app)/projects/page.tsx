@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useStore } from '@/store';
 import { ProjectCard } from '@/components/dashboard/ProjectCard';
 import { Plus, Search } from 'lucide-react';
@@ -20,15 +20,22 @@ export default function ProjectsPage() {
     const [shareProject, setShareProject] = useState<ResearchProject | null>(null);
 
     useEffect(() => {
-        loadProjects();
-    }, [loadProjects]);
+        if (!projects.length) {
+            void loadProjects();
+        }
+    }, [loadProjects, projects.length]);
 
-    const filteredProjects = projects.filter(project => {
-        const matchesSearch = project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            project.goal.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesFilter = filter === 'all' || project.status === filter;
-        return matchesSearch && matchesFilter;
-    });
+    const filteredProjects = useMemo(() => {
+        const normalizedQuery = searchQuery.trim().toLowerCase();
+        return projects.filter((project) => {
+            const matchesSearch =
+                !normalizedQuery ||
+                project.title.toLowerCase().includes(normalizedQuery) ||
+                project.goal.toLowerCase().includes(normalizedQuery);
+            const matchesFilter = filter === 'all' || project.status === filter;
+            return matchesSearch && matchesFilter;
+        });
+    }, [projects, searchQuery, filter]);
 
     return (
         <div className="min-h-screen bg-black animate-in fade-in duration-700 relative overflow-hidden">

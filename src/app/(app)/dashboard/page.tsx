@@ -25,11 +25,31 @@ export default function DashboardPage() {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
     useEffect(() => {
-        refreshUser();
-        loadProjects();
-        loadProjectStats();
-        loadActivityFeed(8);
-    }, [loadActivityFeed, loadProjectStats, loadProjects, refreshUser]);
+        const hydrate = async () => {
+            if (!user) {
+                await refreshUser();
+            }
+            if (!projects.length) {
+                await loadProjects();
+            }
+            if (!projectStats) {
+                await loadProjectStats();
+            }
+            if (!activityFeed.length) {
+                await loadActivityFeed(8);
+            }
+        };
+        void hydrate();
+    }, [
+        activityFeed.length,
+        loadActivityFeed,
+        loadProjectStats,
+        loadProjects,
+        projectStats,
+        projects.length,
+        refreshUser,
+        user,
+    ]);
 
     const recentProjects = projects.slice(0, 2);
 

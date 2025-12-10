@@ -124,7 +124,11 @@ export default function SettingsPage() {
     };
 
     const refreshDevices = useCallback(async () => {
-        if (!user?.id) return;
+        if (!user?.id) {
+            setDeviceInfo([]);
+            setDevicesLoading(false);
+            return;
+        }
         setDevicesLoading(true);
         try {
             const res = await DeviceService.list();

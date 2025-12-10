@@ -865,16 +865,28 @@ export const useStore = create<AppState>()(persist((set, get) => {
             },
     };
 }, {
-    name: 'intellex-store',
-    // Persist only long-lived data; omit transient loading flag.
+    name: STORE_KEY,
+    version: 2,
+    // Persist only lightweight, long-lived data. Avoid caching projects/messages in localStorage to reduce payload and stale state.
     partialize: (state) => ({
-        user: state.user,
-        projects: state.projects,
-        activeProject: state.activeProject,
-        activePlan: state.activePlan,
-        messages: state.messages,
+        user: state.user
+            ? {
+                ...state.user,
+                preferences: state.user.preferences ?? { theme: 'system' },
+            }
+            : null,
         timezone: state.timezone,
     }),
+    migrate: (persistedState, version) => {
+        if (version < 2) {
+            const legacy = persistedState as Partial<AppState>;
+            return {
+                user: legacy.user ?? null,
+                timezone: legacy.timezone ?? 'UTC',
+            };
+        }
+        return persistedState as Partial<AppState>;
+    },
     onRehydrateStorage: () => (state) => {
         // Mark store as hydrated once localStorage data is loaded
         state?.setHydrated();
