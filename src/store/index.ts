@@ -877,7 +877,7 @@ export const useStore = create<AppState>()(persist((set, get) => {
             : null,
         timezone: state.timezone,
     }),
-    migrate: (persistedState, version) => {
+    migrate: (persistedState, version): { user: User | null; timezone: string } => {
         if (version < 2) {
             const legacy = persistedState as Partial<AppState>;
             return {
@@ -885,7 +885,11 @@ export const useStore = create<AppState>()(persist((set, get) => {
                 timezone: legacy.timezone ?? 'UTC',
             };
         }
-        return persistedState as Partial<AppState>;
+        const current = persistedState as { user?: User | null; timezone?: string };
+        return {
+            user: current.user ?? null,
+            timezone: current.timezone ?? 'UTC',
+        };
     },
     onRehydrateStorage: () => (state) => {
         // Mark store as hydrated once localStorage data is loaded
