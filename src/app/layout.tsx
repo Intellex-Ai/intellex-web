@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import { RecoveryRedirect } from "@/components/auth/RecoveryRedirect";
+import { DeviceRevocationWatcher } from "@/components/auth/DeviceRevocationWatcher";
 import { PWAProvider } from "@/components/pwa/PWAProvider";
 import { ToastProvider } from "@/components/ui/ToastProvider";
 import { metadataBaseUrl } from "@/lib/site-url";
@@ -85,6 +86,7 @@ export default function RootLayout({
         <PWAProvider>
           <ToastProvider>
             <RecoveryRedirect />
+            <DeviceRevocationWatcher />
             {children}
             <Analytics />
             <SpeedInsights />
