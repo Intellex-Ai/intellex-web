@@ -235,7 +235,7 @@ export const useStore = create<AppState>()(persist((set, get) => {
                             const redirectTo = baseUrl
                                 ? `${baseUrl}/auth/email-verified?email=${encodeURIComponent(email)}`
                                 : undefined;
-                            await supabase.auth.signOut().catch(() => {});
+                            await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
                             await supabase.auth
                                 .resend({
                                     type: 'signup',
@@ -291,7 +291,7 @@ export const useStore = create<AppState>()(persist((set, get) => {
                                 throw error;
                             }
                             // Always force verification before login; do not keep any session alive here.
-                            await supabase.auth.signOut().catch(() => {});
+                            await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
                             await syncSessionCookies({ accessToken: null, mfaPending: false });
                             const shouldResend = !data.session;
                             if (shouldResend) {
@@ -452,7 +452,7 @@ export const useStore = create<AppState>()(persist((set, get) => {
                     } catch (err) {
                         console.warn('Device revoke failed', err);
                     }
-                    await supabase.auth.signOut();
+                    await supabase.auth.signOut({ scope: 'local' });
                 } catch (err) {
                     console.warn('Supabase signOut failed', err);
                 }

@@ -34,7 +34,7 @@ function LoginContent() {
             if (hasMfaState) {
                 clearMfaPendingCookie();
                 // Sign out to clear the partial session (authenticated but MFA not verified)
-                await supabase.auth.signOut().catch(() => {});
+                await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
                 state.clearSession();
             }
             

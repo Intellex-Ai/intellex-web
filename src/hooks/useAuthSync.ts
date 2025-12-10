@@ -28,7 +28,7 @@ export const useAuthSync = () => {
         async function handleExpiry() {
             const { data, error } = await supabase.auth.getSession();
             if (error || !data?.session) {
-                await supabase.auth.signOut().catch(() => {});
+                await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
                 resetSession();
                 return;
             }

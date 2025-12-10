@@ -118,7 +118,7 @@ function EmailVerifiedInner() {
             // If this is a different device, sign out to prevent auto-login on "Go to Login"
             // This is safe because the original signup tab is on a different device
             if (verified && !sameDevice) {
-                await supabase.auth.signOut().catch(() => {});
+                await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
             }
 
             if (verified) {

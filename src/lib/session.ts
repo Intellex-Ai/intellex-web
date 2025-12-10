@@ -40,7 +40,7 @@ export const handleRemoteSignOut = async (reason?: string) => {
     remoteSignOutInFlight = true;
     try {
         const { supabase } = await import('@/lib/supabase');
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: 'local' });
     } catch {
         // non-blocking
     }
