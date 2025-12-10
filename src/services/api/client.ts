@@ -2,6 +2,7 @@
 export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || '/api').replace(/\/$/, '');
 
 import { supabase } from '@/lib/supabase';
+import { getDeviceHeaders } from '@/lib/device';
 
 export class ApiError extends Error {
     status: number;
@@ -36,6 +37,8 @@ async function request<T>(path: string, options: ApiRequestOptions = {}): Promis
     const headers: HeadersInit = {
         ...(incomingHeaders || {}),
     };
+
+    Object.assign(headers, getDeviceHeaders());
 
     const accessToken = await getAccessToken();
     if (accessToken && !(headers as Record<string, string>)['Authorization']) {

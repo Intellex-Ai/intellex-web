@@ -90,3 +90,45 @@ export type ApiKeySummary = {
     last4: string;
     storedAt: number;
 };
+
+export type DeviceRecord = {
+    id: string;
+    userId: string;
+    deviceId: string;
+    userAgent?: string | null;
+    platform?: string | null;
+    browser?: string | null;
+    os?: string | null;
+    timezone?: string | null;
+    locale?: string | null;
+    screen?: string | null;
+    deviceMemory?: number | null;
+    city?: string | null;
+    region?: string | null;
+    ip?: string | null;
+    label?: string | null;
+    isTrusted?: boolean;
+    firstSeenAt: number;
+    lastSeenAt: number;
+    lastLoginAt?: number | null;
+    revokedAt?: number | null;
+};
+
+export type DeviceUpsertPayload = {
+    deviceId: string;
+    userAgent?: string;
+    platform?: string;
+    browser?: string;
+    os?: string;
+    timezone?: string;
+    locale?: string;
+    screen?: string;
+    deviceMemory?: number;
+    city?: string;
+    region?: string;
+    ip?: string;
+    label?: string;
+    isTrusted?: boolean;
+    login?: boolean;
+    refreshToken?: string;
+};

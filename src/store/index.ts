@@ -5,6 +5,7 @@ import { AuthService } from '@/services/api/auth';
 import { ProjectService } from '@/services/api/projects';
 import { ChatService } from '@/services/api/chat';
 import { ApiError } from '@/services/api/client';
+import { DeviceService } from '@/services/api/device';
 import { supabase } from '@/lib/supabase';
 import { API_BASE_URL } from '@/services/api/client';
 import { getSiteUrl } from '@/lib/site-url';
@@ -157,6 +158,16 @@ export const useStore = create<AppState>()(persist((set, get) => {
         };
         set({ user: mergedUser });
         return mergedUser;
+    };
+
+    const touchDevice = async (login = false) => {
+        try {
+            const { data } = await supabase.auth.getSession();
+            const refreshToken = data?.session?.refresh_token ?? undefined;
+            await DeviceService.register({ login, refreshToken });
+        } catch (err) {
+            console.warn('Device registration failed', err);
+        }
     };
 
     return {
@@ -328,6 +339,7 @@ export const useStore = create<AppState>()(persist((set, get) => {
                     const user = await AuthService.login(email, fallbackName, supabaseUserId);
                     set({ user });
                     await syncCookiesFromSession(false);
+                    void touchDevice(true);
                     return true;
                 } catch (error) {
                     console.error('Login failed', error);
@@ -433,6 +445,11 @@ export const useStore = create<AppState>()(persist((set, get) => {
 
             logout: async () => {
                 try {
+                    try {
+                        await DeviceService.revoke({ scope: 'single' });
+                    } catch (err) {
+                        console.warn('Device revoke failed', err);
+                    }
                     await supabase.auth.signOut();
                 } catch (err) {
                     console.warn('Supabase signOut failed', err);
@@ -776,6 +793,7 @@ export const useStore = create<AppState>()(persist((set, get) => {
                                 });
                                 await syncSessionCookies({ accessToken, mfaPending: false });
                                 markMfaVerified(accessToken || undefined);
+                                void touchDevice(false);
                                 return;
                             }
                         }
@@ -808,6 +826,7 @@ export const useStore = create<AppState>()(persist((set, get) => {
                             });
                             await syncSessionCookies({ accessToken, mfaPending: false });
                             markMfaVerified(accessToken || undefined);
+                            void touchDevice(false);
                             return;
                         }
                         // If RLS blocked or no profile yet, fall through to metadata fallback.
@@ -832,6 +851,7 @@ export const useStore = create<AppState>()(persist((set, get) => {
                     });
                     await syncSessionCookies({ accessToken, mfaPending: false });
                     markMfaVerified(accessToken || undefined);
+                    void touchDevice(false);
                 } catch (error) {
                     console.error('Failed to refresh user', error);
                     await syncSessionCookies({ accessToken: null, mfaPending: false });

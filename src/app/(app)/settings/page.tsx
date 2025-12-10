@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useStore } from '@/store';
 import { Shield, LogOut, Moon, Monitor, Key, Globe, Clock, Save, MonitorSmartphone } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -9,8 +9,10 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { TextScramble } from '@/components/ui/TextScramble';
 import { UserService } from '@/services/api/user';
-import { ApiKeySummary } from '@/types';
+import { DeviceService } from '@/services/api/device';
+import { ApiKeySummary, DeviceRecord } from '@/types';
 import { useToast } from '@/components/ui/ToastProvider';
+import { getDeviceId } from '@/lib/device';
 
 const timezones = [
     { label: 'UTC', value: 'UTC' },
@@ -28,12 +30,33 @@ export default function SettingsPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [apiKeys, setApiKeys] = useState({ openai: '', anthropic: '' });
     const [storedKeys, setStoredKeys] = useState<ApiKeySummary[]>([]);
-    const [deviceInfo, setDeviceInfo] = useState<{ ua: string; platform: string; current: boolean; lastSignIn?: string | null }[]>([]);
+    const [deviceInfo, setDeviceInfo] = useState<DeviceRecord[]>([]);
     const [deviceError, setDeviceError] = useState<string | null>(null);
+    const [devicesLoading, setDevicesLoading] = useState(false);
+    const [revokingDevices, setRevokingDevices] = useState(false);
+    const currentDeviceId = useMemo(() => getDeviceId(), []);
 
     const handleSignOut = async () => {
         await logout();
         router.push('/');
+    };
+
+    const handleSignOutEverywhere = async () => {
+        setRevokingDevices(true);
+        try {
+            await DeviceService.revoke({ scope: 'all' });
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to sign out on all devices';
+            setDeviceError(message);
+            toast({
+                variant: 'error',
+                title: 'Sign-out failed',
+                message,
+            });
+        } finally {
+            setRevokingDevices(false);
+        }
+        await handleSignOut();
     };
 
     const handleSave = async () => {
@@ -77,37 +100,59 @@ export default function SettingsPage() {
         void load();
     }, []);
 
-    const uaSummary = useMemo(() => {
-        if (typeof navigator === 'undefined') return { ua: 'Unknown', platform: 'Unknown device' };
-        const ua = navigator.userAgent;
-        const platform = navigator.platform || 'Unknown platform';
-        return { ua, platform };
-    }, []);
+    const formatTimestamp = (value?: number | null) => {
+        if (!value) return '—';
+        try {
+            return new Date(value).toLocaleString();
+        } catch {
+            return '—';
+        }
+    };
+
+    const refreshDevices = useCallback(async () => {
+        if (!user?.id) return;
+        setDevicesLoading(true);
+        try {
+            const res = await DeviceService.list();
+            setDeviceInfo(res.devices || []);
+            setDeviceError(null);
+        } catch (err) {
+            setDeviceError(err instanceof Error ? err.message : 'Failed to load devices');
+        } finally {
+            setDevicesLoading(false);
+        }
+    }, [user?.id]);
+
+    const handleSignOutOthers = async () => {
+        if (!currentDeviceId) {
+            setDeviceError('Unable to determine current device. Please reload and try again.');
+            return;
+        }
+        setRevokingDevices(true);
+        try {
+            await DeviceService.revoke({ scope: 'others', deviceId: currentDeviceId });
+            await refreshDevices();
+            toast({
+                variant: 'success',
+                title: 'Signed out elsewhere',
+                message: 'All other devices have been revoked.',
+            });
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to sign out other devices';
+            setDeviceError(message);
+            toast({
+                variant: 'error',
+                title: 'Sign-out failed',
+                message,
+            });
+        } finally {
+            setRevokingDevices(false);
+        }
+    };
 
     useEffect(() => {
-        const loadDevices = async () => {
-            if (!user?.email) return;
-            try {
-                const res = await fetch(`/api/profile/pending?email=${encodeURIComponent(user.email)}`);
-                let lastSignIn: string | null = null;
-                if (res.ok) {
-                    const data = await res.json();
-                    lastSignIn = data.user?.last_sign_in_at ?? null;
-                }
-                setDeviceInfo([
-                    {
-                        ua: uaSummary.ua,
-                        platform: uaSummary.platform,
-                        current: true,
-                        lastSignIn,
-                    },
-                ]);
-            } catch (err) {
-                setDeviceError(err instanceof Error ? err.message : 'Failed to load devices');
-            }
-        };
-        loadDevices();
-    }, [uaSummary, user?.email]);
+        void refreshDevices();
+    }, [refreshDevices]);
 
     const sections = [
         {
@@ -233,31 +278,81 @@ export default function SettingsPage() {
             content: (
                 <div className="space-y-6">
                     <div className="space-y-2">
-                        <h4 className="text-sm font-bold text-white font-mono uppercase">Devices</h4>
-                        <p className="text-xs text-muted font-mono">Track your current session and last sign-in.</p>
+                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                            <div>
+                                <h4 className="text-sm font-bold text-white font-mono uppercase">Devices</h4>
+                                <p className="text-xs text-muted font-mono">Track active sessions and sign out remotely.</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    size="xs"
+                                    variant="secondary"
+                                    onClick={refreshDevices}
+                                    isLoading={devicesLoading}
+                                >
+                                    REFRESH
+                                </Button>
+                                <Button
+                                    size="xs"
+                                    variant="ghost"
+                                    onClick={handleSignOutOthers}
+                                    disabled={!currentDeviceId}
+                                    isLoading={revokingDevices}
+                                    leftIcon={<LogOut size={14} />}
+                                >
+                                    SIGN_OUT_OTHERS
+                                </Button>
+                            </div>
+                        </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {deviceInfo.map((device, idx) => (
-                                <div key={idx} className="p-4 border border-white/10 bg-black/50 rounded-sm flex gap-3">
-                                    <div className="w-10 h-10 bg-primary/10 text-primary flex items-center justify-center rounded-sm">
-                                        <MonitorSmartphone size={18} />
+                            {deviceInfo.map((device) => {
+                                const isCurrent = Boolean(currentDeviceId && device.deviceId === currentDeviceId);
+                                const revoked = Boolean(device.revokedAt);
+                                const location = [device.city, device.region].filter(Boolean).join(', ') || device.ip;
+                                return (
+                                    <div
+                                        key={device.deviceId}
+                                        className={`p-4 border ${revoked ? 'border-error/50' : 'border-white/10'} bg-black/50 rounded-sm flex gap-3`}
+                                    >
+                                        <div className="w-10 h-10 bg-primary/10 text-primary flex items-center justify-center rounded-sm">
+                                            <MonitorSmartphone size={18} />
+                                        </div>
+                                        <div className="space-y-1 min-w-0">
+                                            <p className="text-sm text-white font-mono truncate">{device.platform || 'Unknown device'}</p>
+                                            <p className="text-xs text-muted font-mono truncate">{device.userAgent || 'No user agent'}</p>
+                                            <p className="text-xs text-muted font-mono">Last seen: {formatTimestamp(device.lastSeenAt)}</p>
+                                            <p className="text-xs text-muted font-mono">Last sign-in: {formatTimestamp(device.lastLoginAt)}</p>
+                                            {location && (
+                                                <p className="text-xs text-muted font-mono truncate">{location}</p>
+                                            )}
+                                            {device.label && (
+                                                <p className="text-[10px] text-muted font-mono uppercase truncate">Label: {device.label}</p>
+                                            )}
+                                            <div className="flex flex-wrap gap-2 pt-1">
+                                                {isCurrent && (
+                                                    <span className="text-[10px] font-mono uppercase text-primary bg-primary/10 px-2 py-1 inline-block">
+                                                        Current Session
+                                                    </span>
+                                                )}
+                                                {revoked && (
+                                                    <span className="text-[10px] font-mono uppercase text-error bg-error/10 px-2 py-1 inline-block">
+                                                        Revoked
+                                                    </span>
+                                                )}
+                                                {!revoked && device.isTrusted && (
+                                                    <span className="text-[10px] font-mono uppercase text-muted bg-white/5 px-2 py-1 inline-block">
+                                                        Trusted
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="space-y-1 min-w-0">
-                                        <p className="text-sm text-white font-mono truncate">{device.platform}</p>
-                                        <p className="text-xs text-muted font-mono truncate">{device.ua}</p>
-                                        {device.lastSignIn && (
-                                            <p className="text-xs text-muted font-mono">Last sign-in: {device.lastSignIn}</p>
-                                        )}
-                                        {device.current && (
-                                            <span className="text-[10px] font-mono uppercase text-primary bg-primary/10 px-2 py-1 inline-block">
-                                                Current Session
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                            {deviceInfo.length === 0 && (
-                                <div className="text-xs text-muted font-mono">No device info available.</div>
+                                );
+                            })}
+                            {deviceInfo.length === 0 && !devicesLoading && (
+                                <div className="text-xs text-muted font-mono">No device info available. Sign in to register this device.</div>
                             )}
+                            {devicesLoading && <div className="text-xs text-muted font-mono">Syncing devices...</div>}
                             {deviceError && <div className="text-xs text-error font-mono">{deviceError}</div>}
                         </div>
                     </div>
@@ -270,10 +365,11 @@ export default function SettingsPage() {
                         <Button
                             variant="danger"
                             size="sm"
-                            onClick={handleSignOut}
+                            onClick={handleSignOutEverywhere}
+                            isLoading={revokingDevices}
                             leftIcon={<LogOut size={14} />}
                         >
-                            SIGN_OUT
+                            SIGN_OUT_ALL
                         </Button>
                     </div>
                 </div>
