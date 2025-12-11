@@ -696,19 +696,22 @@ export const useStore = create<AppState>()(persist((set, get) => {
                 set({ isLoading: true });
                 try {
                     const { userMessage, agentMessage, plan } = await ChatService.sendMessage(activeProject.id, content);
+                    const lastTimestamp = agentMessage?.timestamp ?? userMessage.timestamp;
                     set((state) => {
                         const updatedProjects = state.projects.map((project) =>
                             project.id === activeProject.id
-                                ? { ...project, lastMessageAt: agentMessage.timestamp, updatedAt: agentMessage.timestamp }
+                                ? { ...project, lastMessageAt: lastTimestamp, updatedAt: lastTimestamp }
                                 : project
                         );
 
                         return {
                             projects: updatedProjects,
                             activeProject: state.activeProject
-                                ? { ...state.activeProject, lastMessageAt: agentMessage.timestamp, updatedAt: agentMessage.timestamp }
+                                ? { ...state.activeProject, lastMessageAt: lastTimestamp, updatedAt: lastTimestamp }
                                 : null,
-                            messages: [...state.messages, userMessage, agentMessage],
+                            messages: agentMessage
+                                ? [...state.messages, userMessage, agentMessage]
+                                : [...state.messages, userMessage],
                             activePlan: plan ?? state.activePlan,
                         };
                     });
