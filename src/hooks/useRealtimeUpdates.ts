@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 import { useStore } from '@/store';
-import type { ChatMessage, ResearchProject } from '@/types';
+import type { ChatMessage, ResearchProject, ResearchStatus, MessageType } from '@/types';
 
 const toTimestamp = (value: unknown): number | undefined => {
     if (typeof value === 'number') return value;
@@ -19,14 +19,24 @@ const toTimestamp = (value: unknown): number | undefined => {
 
 const mapProjectRow = (row: Record<string, unknown>): ResearchProject | null => {
     if (!row?.id) return null;
+    const id = typeof row.id === 'string' ? row.id : String(row.id);
+    const userIdRaw = (row.user_id ?? row.userId) as unknown;
+    const userId = typeof userIdRaw === 'string' ? userIdRaw : userIdRaw ? String(userIdRaw) : '';
     const createdAt = toTimestamp(row.created_at) ?? Date.now();
     const updatedAt = toTimestamp(row.updated_at) ?? createdAt;
+    const title = typeof row.title === 'string' ? row.title : row.title ? String(row.title) : '';
+    const goal = typeof row.goal === 'string' ? row.goal : row.goal ? String(row.goal) : '';
+    const rawStatus = typeof row.status === 'string' ? row.status : 'draft';
+    const status: ResearchStatus = (['draft', 'active', 'completed', 'archived'] as ResearchStatus[]).includes(rawStatus as ResearchStatus)
+        ? (rawStatus as ResearchStatus)
+        : 'draft';
+
     return {
-        id: row.id,
-        userId: row.user_id ?? row.userId ?? '',
-        title: row.title ?? '',
-        goal: row.goal ?? '',
-        status: row.status ?? 'draft',
+        id,
+        userId,
+        title,
+        goal,
+        status,
         createdAt,
         updatedAt,
         lastMessageAt: toTimestamp(row.last_message_at),
@@ -35,6 +45,8 @@ const mapProjectRow = (row: Record<string, unknown>): ResearchProject | null => 
 
 const mapMessageRow = (row: Record<string, unknown>): ChatMessage | null => {
     if (!row?.id || !row.project_id) return null;
+    const id = typeof row.id === 'string' ? row.id : String(row.id);
+    const projectId = typeof row.project_id === 'string' ? row.project_id : String(row.project_id);
 
     let thoughts: ChatMessage['thoughts'] = undefined;
     const rawThoughts = row.thoughts;
@@ -51,12 +63,19 @@ const mapMessageRow = (row: Record<string, unknown>): ChatMessage | null => {
         }
     }
 
+    const rawSenderType = typeof row.sender_type === 'string' ? row.sender_type : 'system';
+    const senderType: MessageType = (['user', 'agent', 'system'] as MessageType[]).includes(rawSenderType as MessageType)
+        ? (rawSenderType as MessageType)
+        : 'system';
+
+    const content = typeof row.content === 'string' ? row.content : row.content ? String(row.content) : '';
+
     return {
-        id: row.id,
-        projectId: row.project_id,
-        senderId: row.sender_id ?? '',
-        senderType: row.sender_type ?? 'system',
-        content: row.content ?? '',
+        id,
+        projectId,
+        senderId: row.sender_id ? String(row.sender_id) : '',
+        senderType,
+        content,
         thoughts,
         timestamp: toTimestamp(row.timestamp) ?? Date.now(),
     };
