@@ -1,12 +1,10 @@
-import { ApiKeySummary } from '@/types';
-import { api } from './client';
+import type { ApiKeyPayload, ApiKeysResponse } from '@intellex/shared-client';
 
-type ApiKeysResponse = {
-    keys: ApiKeySummary[];
-};
+import { usersApi, withApiError } from './client';
+
 
 export const UserService = {
-    getApiKeys: () => api.get<ApiKeysResponse>('/users/api-keys'),
-    saveApiKeys: (payload: { openai?: string; anthropic?: string }) =>
-        api.post<ApiKeysResponse>('/users/api-keys', payload),
+    getApiKeys: (): Promise<ApiKeysResponse> => withApiError(() => usersApi.getApiKeysUsersApiKeysGet({})),
+    saveApiKeys: (payload: ApiKeyPayload): Promise<ApiKeysResponse> =>
+        withApiError(() => usersApi.saveApiKeysUsersApiKeysPost({ apiKeyPayload: payload })),
 };

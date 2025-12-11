@@ -1,9 +1,11 @@
-// Always prefer same-origin API unless explicitly overridden by env to avoid CORS / SW issues.
-export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || '/api').replace(/\/$/, '');
+import { AuthApi, Configuration, ProjectsApi, ResponseError, UsersApi, type Middleware } from '@intellex/shared-client';
 
 import { supabase } from '@/lib/supabase';
 import { handleRemoteSignOut } from '@/lib/session';
-import { getDeviceHeaders } from '@/lib/device';
+import { getDeviceId } from '@/lib/device';
+
+// Always prefer same-origin API unless explicitly overridden by env to avoid CORS / SW issues.
+export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || '/api').replace(/\/+$/, '') || '/api';
 
 export class ApiError extends Error {
     status: number;
@@ -16,12 +18,6 @@ export class ApiError extends Error {
     }
 }
 
-type ApiRequestOptions = Omit<RequestInit, 'body'> & {
-    body?: Record<string, unknown> | string | FormData | null;
-};
-
-const buildUrl = (path: string) => `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
-
 const getAccessToken = async (): Promise<string | null> => {
     if (typeof window === 'undefined') return null;
     try {
@@ -32,76 +28,59 @@ const getAccessToken = async (): Promise<string | null> => {
     }
 };
 
-async function request<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
-    const url = buildUrl(path);
-    const { body, headers: incomingHeaders, method, ...rest } = options;
-    const headers: HeadersInit = {
-        ...(incomingHeaders || {}),
-    };
-
-    Object.assign(headers, getDeviceHeaders());
-
-    const accessToken = await getAccessToken();
-    if (accessToken && !(headers as Record<string, string>)['Authorization']) {
-        (headers as Record<string, string>)['Authorization'] = `Bearer ${accessToken}`;
-    }
-
-    const hasBody = body !== undefined && body !== null;
-    const shouldSetJson =
-        hasBody &&
-        !(body instanceof FormData) &&
-        !(typeof body === 'string') &&
-        !(headers as Record<string, string>)['Content-Type'];
-    if (shouldSetJson) {
-        (headers as Record<string, string>)['Content-Type'] = 'application/json';
-    }
-
-    const init: RequestInit = {
-        cache: 'no-store',
-        ...rest,
-        method: method || 'GET',
-        headers,
-    };
-
-    if (hasBody) {
-        if (body instanceof FormData) {
-            delete (init.headers as Record<string, string>)['Content-Type'];
-            init.body = body;
-        } else if (typeof body === 'string') {
-            init.body = body;
-        } else {
-            init.body = JSON.stringify(body);
+const authMiddleware: Middleware = {
+    pre: async ({ url, init }) => {
+        const headers = new Headers(init.headers || {});
+        const token = await getAccessToken();
+        if (token && !headers.has('authorization')) {
+            headers.set('authorization', `Bearer ${token}`);
         }
+        const deviceId = getDeviceId();
+        if (deviceId && !headers.has('x-device-id')) {
+            headers.set('x-device-id', deviceId);
+        }
+        return { url, init: { ...init, headers } };
+    },
+};
+
+const configuration = new Configuration({
+    basePath: API_BASE_URL,
+    middleware: [authMiddleware],
+});
+
+export const authApi = new AuthApi(configuration);
+export const projectsApi = new ProjectsApi(configuration);
+export const usersApi = new UsersApi(configuration);
+
+const toApiError = async (error: unknown): Promise<ApiError> => {
+    if (error instanceof ApiError) {
+        return error;
     }
 
-    let response: Response;
-    try {
-        response = await fetch(url, init);
-    } catch (networkError) {
-        throw new ApiError('Unable to reach API. Is the backend running and the base URL correct?', 0, networkError);
-    }
+    if (error instanceof ResponseError) {
+        const { response } = error;
+        const clone = response.clone();
+        let detail: unknown = null;
+        let message = 'Request failed';
 
-    const contentType = response.headers.get('content-type') || '';
-    const isJson = contentType.includes('application/json');
-    let data: unknown = null;
-
-    try {
-        data = isJson ? await response.json() : await response.text();
-    } catch {
-        // Fall through with null data if body is empty or unparsable.
-    }
-
-    if (!response.ok) {
-        const detailMessage =
-            typeof data === 'object' && data !== null
-                ? (data as { detail?: string; message?: string }).detail ||
-                (data as { detail?: string; message?: string }).message
-                : undefined;
-        const message =
-            (typeof data === 'string' && data.trim().length > 0 && data) ||
-            detailMessage ||
-            response.statusText ||
-            'Request failed';
+        try {
+            const data = await clone.json();
+            detail = data;
+            const extracted = (data as { detail?: string; message?: string }).detail || (data as { detail?: string; message?: string }).message;
+            if (typeof extracted === 'string' && extracted.trim()) {
+                message = extracted;
+            }
+        } catch {
+            try {
+                const text = await clone.text();
+                if (text) {
+                    detail = text;
+                    message = text;
+                }
+            } catch {
+                // ignore parse errors
+            }
+        }
 
         if (typeof window !== 'undefined' && (response.status === 401 || response.status === 403)) {
             const lowered = (message || '').toLowerCase();
@@ -109,30 +88,18 @@ async function request<T>(path: string, options: ApiRequestOptions = {}): Promis
                 void handleRemoteSignOut(message);
             }
         }
-        throw new ApiError(message, response.status, data);
+
+        return new ApiError(message, response.status, detail);
     }
 
-    return data as T;
-}
-
-const withQuery = (path: string, params?: Record<string, string | number | undefined | null>) => {
-    if (!params) return path;
-    const searchParams = new URLSearchParams();
-    Object.entries(params).forEach(([key, val]) => {
-        if (val !== undefined && val !== null) searchParams.append(key, String(val));
-    });
-    const query = searchParams.toString();
-    return query ? `${path}?${query}` : path;
+    const fallbackMessage = error instanceof Error ? error.message : 'Unknown error';
+    return new ApiError(fallbackMessage, 0, error);
 };
 
-export const api = {
-    request,
-    get: <T>(path: string, params?: Record<string, string | number | undefined | null>) =>
-        request<T>(withQuery(path, params), { method: 'GET' }),
-    post: <T>(path: string, body?: ApiRequestOptions['body']) => request<T>(path, { method: 'POST', body }),
-    put: <T>(path: string, body?: ApiRequestOptions['body']) => request<T>(path, { method: 'PUT', body }),
-    del: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+export const withApiError = async <T>(fn: () => Promise<T>): Promise<T> => {
+    try {
+        return await fn();
+    } catch (err) {
+        throw await toApiError(err);
+    }
 };
-
-// Backwards compatibility
-export const apiRequest = request;

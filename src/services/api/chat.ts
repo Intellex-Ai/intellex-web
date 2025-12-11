@@ -1,15 +1,17 @@
-import { ChatMessage, ResearchPlan } from '@/types';
-import { api } from './client';
+import type { SendMessageResponse } from '@intellex/shared-client';
 
-export type SendMessageResult = {
-    userMessage: ChatMessage;
-    agentMessage: ChatMessage;
-    plan?: ResearchPlan | null;
-};
+import { projectsApi, withApiError } from './client';
+
+export type SendMessageResult = SendMessageResponse;
 
 export const ChatService = {
-    getMessages: (projectId: string) => api.get<ChatMessage[]>(`/projects/${projectId}/messages`),
-
+    getMessages: (projectId: string) =>
+        withApiError(() => projectsApi.getMessagesProjectsProjectIdMessagesGet({ projectId })),
     sendMessage: (projectId: string, content: string) =>
-        api.post<SendMessageResult>(`/projects/${projectId}/messages`, { content }),
+        withApiError(() =>
+            projectsApi.sendMessageProjectsProjectIdMessagesPost({
+                projectId,
+                createMessageRequest: { content },
+            })
+        ),
 };

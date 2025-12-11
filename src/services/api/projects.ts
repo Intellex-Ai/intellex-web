@@ -1,20 +1,47 @@
-import { ActivityItem, ProjectStats, ResearchPlan, ResearchProject } from '@/types';
-import { api } from './client';
+import type {
+    ActivityItem,
+    ProjectStats,
+    ResearchPlan,
+    ResearchProject,
+} from '@/types';
+import type {
+    CreateProjectRequest,
+    ShareProjectRequest,
+    UpdateProjectRequest,
+} from '@intellex/shared-client';
+
+import { projectsApi, withApiError } from './client';
 
 export const ProjectService = {
-    list: (userId: string) => api.get<ResearchProject[]>('/projects', { userId }),
-    get: (projectId: string) => api.get<ResearchProject>(`/projects/${projectId}`),
-    create: (title: string, goal: string, userId: string) =>
-        api.post<ResearchProject>('/projects', { title, goal, userId }),
-    update: (projectId: string, payload: { title?: string; goal?: string; status?: ResearchProject['status'] }) =>
-        api.request<ResearchProject>(`/projects/${projectId}`, { method: 'PATCH', body: payload }),
-    delete: (projectId: string) => api.request<void>(`/projects/${projectId}`, { method: 'DELETE' }),
-    getPlan: (projectId: string) => api.get<ResearchPlan>(`/projects/${projectId}/plan`),
-    stats: (userId: string) => api.get<ProjectStats>('/projects/stats', { userId }),
-    activity: (userId: string, limit = 10) => api.get<ActivityItem[]>('/projects/activity', { userId, limit }),
-    listShares: (projectId: string) => api.get(`/projects/${projectId}/shares`),
-    share: (projectId: string, payload: { email: string; access?: 'viewer' | 'editor' }) =>
-        api.post(`/projects/${projectId}/shares`, payload),
+    list: (userId: string): Promise<ResearchProject[]> =>
+        withApiError(() => projectsApi.listProjectsProjectsGet({ userId })),
+    get: (projectId: string): Promise<ResearchProject> =>
+        withApiError(() => projectsApi.getProjectProjectsProjectIdGet({ projectId })),
+    create: (title: string, goal: string, userId: string): Promise<ResearchProject> => {
+        const payload: CreateProjectRequest = { title, goal, userId };
+        return withApiError(() => projectsApi.createProjectProjectsPost({ createProjectRequest: payload }));
+    },
+    update: (
+        projectId: string,
+        payload: { title?: string; goal?: string; status?: ResearchProject['status'] },
+    ): Promise<ResearchProject> => {
+        const request: UpdateProjectRequest = { ...payload };
+        return withApiError(() => projectsApi.updateProjectProjectsProjectIdPatch({ projectId, updateProjectRequest: request }));
+    },
+    delete: (projectId: string): Promise<void> =>
+        withApiError(() => projectsApi.deleteProjectProjectsProjectIdDelete({ projectId })),
+    getPlan: (projectId: string): Promise<ResearchPlan> =>
+        withApiError(() => projectsApi.getPlanProjectsProjectIdPlanGet({ projectId })),
+    stats: (userId: string): Promise<ProjectStats> =>
+        withApiError(() => projectsApi.projectStatsProjectsStatsGet({ userId })),
+    activity: (userId: string, limit = 10): Promise<ActivityItem[]> =>
+        withApiError(() => projectsApi.recentActivityProjectsActivityGet({ userId, limit })),
+    listShares: (projectId: string) =>
+        withApiError(() => projectsApi.listProjectSharesProjectsProjectIdSharesGet({ projectId })),
+    share: (projectId: string, payload: { email: string; access?: 'viewer' | 'editor' }) => {
+        const request: ShareProjectRequest = { email: payload.email, access: payload.access };
+        return withApiError(() => projectsApi.shareProjectProjectsProjectIdSharesPost({ projectId, shareProjectRequest: request }));
+    },
     revokeShare: (projectId: string, shareId: string) =>
-        api.request<void>(`/projects/${projectId}/shares/${shareId}`, { method: 'DELETE' }),
+        withApiError(() => projectsApi.revokeProjectShareProjectsProjectIdSharesShareIdDelete({ projectId, shareId })),
 };
