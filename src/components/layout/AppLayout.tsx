@@ -22,6 +22,7 @@ import clsx from 'clsx';
 import Image from 'next/image';
 import { DigitalClock } from '@/components/ui/DigitalClock';
 import { useAuthSync } from '@/hooks/useAuthSync';
+import { useRealtimeUpdates } from '@/hooks/useRealtimeUpdates';
 
 interface AppLayoutProps {
     children: React.ReactNode;
@@ -41,6 +42,7 @@ export function AppLayout({ children }: AppLayoutProps) {
     const { logout, user, clearSession, timezone, isHydrated } = useStore();
     const [isSigningOut, setIsSigningOut] = useState(false);
     useAuthSync();
+    useRealtimeUpdates();
 
     const handleSignOut = async () => {
         if (isSigningOut) return;

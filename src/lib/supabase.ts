@@ -3,11 +3,12 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const isPlaceholderConfig = !supabaseUrl || !supabaseKey || supabaseKey.includes('placeholder');
+export const supabaseConfigured = !isPlaceholderConfig && Boolean(supabaseUrl && supabaseKey);
 
 type AuthOnlyClient = ReturnType<typeof createClient>;
 
 const createSupabaseClient = (): AuthOnlyClient => {
-    if (!isPlaceholderConfig && supabaseUrl && supabaseKey) {
+    if (supabaseConfigured && supabaseUrl && supabaseKey) {
         return createClient(supabaseUrl, supabaseKey);
     }
 

@@ -133,6 +133,9 @@ interface AppState {
     clearSession: () => void;
     setTimezone: (timezone: string) => void;
     setHydrated: () => void;
+    realtimeProjectUpsert: (project: ResearchProject) => void;
+    realtimeProjectDelete: (projectId: string) => void;
+    realtimeMessageUpsert: (message: ChatMessage) => void;
 }
 
 export const useStore = create<AppState>()(persist((set, get) => {
@@ -469,6 +472,79 @@ export const useStore = create<AppState>()(persist((set, get) => {
 
             setHydrated: () => {
                 set({ isHydrated: true });
+            },
+
+            realtimeProjectUpsert: (project: ResearchProject) => {
+                set((state) => {
+                    const exists = state.projects.some((p) => p.id === project.id);
+                    const projects = exists
+                        ? state.projects.map((p) => (p.id === project.id ? { ...p, ...project } : p))
+                        : [project, ...state.projects];
+
+                    const activeProject =
+                        state.activeProject?.id === project.id
+                            ? { ...state.activeProject, ...project }
+                            : state.activeProject;
+
+                    return { projects, activeProject };
+                });
+            },
+
+            realtimeProjectDelete: (projectId: string) => {
+                set((state) => {
+                    const projects = state.projects.filter((p) => p.id !== projectId);
+                    const isActive = state.activeProject?.id === projectId;
+                    return {
+                        projects,
+                        activeProject: isActive ? null : state.activeProject,
+                        activePlan: isActive ? null : state.activePlan,
+                        messages: isActive ? [] : state.messages,
+                    };
+                });
+            },
+
+            realtimeMessageUpsert: (message: ChatMessage) => {
+                set((state) => {
+                    const updatedProjects = state.projects.map((project) =>
+                        project.id === message.projectId
+                            ? {
+                                ...project,
+                                lastMessageAt: message.timestamp ?? project.lastMessageAt,
+                                updatedAt: message.timestamp ? Math.max(project.updatedAt, message.timestamp) : project.updatedAt,
+                            }
+                            : project
+                    );
+
+                    const isActiveProject = state.activeProject?.id === message.projectId;
+                    const messages = isActiveProject
+                        ? (() => {
+                            const existingIndex = state.messages.findIndex((m) => m.id === message.id);
+                            if (existingIndex >= 0) {
+                                const cloned = [...state.messages];
+                                cloned[existingIndex] = { ...cloned[existingIndex], ...message };
+                                return cloned;
+                            }
+                            const merged = [...state.messages, message];
+                            return merged.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+                        })()
+                        : state.messages;
+
+                    const activeProject = isActiveProject
+                        ? {
+                            ...state.activeProject!,
+                            lastMessageAt: message.timestamp ?? state.activeProject?.lastMessageAt,
+                            updatedAt: message.timestamp
+                                ? Math.max(state.activeProject?.updatedAt ?? 0, message.timestamp)
+                                : state.activeProject?.updatedAt ?? 0,
+                        }
+                        : state.activeProject;
+
+                    return {
+                        projects: updatedProjects,
+                        messages,
+                        activeProject,
+                    };
+                });
             },
 
             loadProjects: async () => {
