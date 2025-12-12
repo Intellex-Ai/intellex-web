@@ -96,25 +96,6 @@ function EmailVerifiedInner() {
                 }
             }
 
-            // Method 4: If code exchange failed, check if the email param indicates
-            // this user's email is now confirmed (the original tab's polling may have
-            // already detected and processed the verification)
-            const emailParam = searchParams?.get('email');
-            if (!verified && emailParam) {
-                try {
-                    const res = await fetch(`/api/auth/confirm-status?email=${encodeURIComponent(emailParam)}`);
-                    if (res.ok) {
-                        const data = await res.json();
-                        if (data.confirmed) {
-                            verified = true;
-                            sameDevice = false; // Fallback check = likely different device
-                        }
-                    }
-                } catch {
-                    // Non-blocking
-                }
-            }
-
             // If this is a different device, sign out to prevent auto-login on "Go to Login"
             // This is safe because the original signup tab is on a different device
             if (verified && !sameDevice) {

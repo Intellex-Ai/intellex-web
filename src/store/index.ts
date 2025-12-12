@@ -895,8 +895,12 @@ export const useStore = create<AppState>()(persist((set, get) => {
 
                     // Prefer canonical profile via service-role proxy to include avatar.
                     try {
-                        const profileRes = await fetch(`/api/profile?email=${encodeURIComponent(authUser.email ?? '')}`);
-                    if (profileRes.ok) {
+                        const profileRes = accessToken
+                            ? await fetch('/api/profile', {
+                                headers: { authorization: `Bearer ${accessToken}` },
+                            })
+                            : null;
+                        if (profileRes?.ok) {
                             const data = await profileRes.json();
                             const profile = (data?.user as ProfileRow | null) ?? null;
                             if (profile) {

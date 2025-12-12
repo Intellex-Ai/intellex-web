@@ -1,71 +1,116 @@
 import { NextResponse } from 'next/server';
-import { getSupabaseAdmin } from '@/lib/supabase-admin';
+
+import { jsonNoStore, requireSupabaseUser } from '@/app/api/_lib/auth';
 
 const BUCKET = 'avatars';
+const MAX_AVATAR_BYTES = 5 * 1024 * 1024; // 5MB
+
+const sanitizePreferences = (value: unknown) => {
+  if (!value || typeof value !== 'object') return value;
+  const rest = { ...(value as Record<string, unknown>) };
+  delete (rest as { apiKeys?: unknown }).apiKeys;
+  return rest;
+};
 
 export async function POST(req: Request) {
-    const admin = getSupabaseAdmin();
-    if (!admin) {
-        return NextResponse.json({ error: 'Supabase service role not configured' }, { status: 500 });
+  const authed = await requireSupabaseUser(req);
+  if (authed instanceof NextResponse) return authed;
+
+  const { admin, user } = authed;
+
+  const form = await req.formData();
+  const file = form.get('file') as File | null;
+
+  if (!file) {
+    return jsonNoStore({ error: 'file is required' }, { status: 400 });
+  }
+
+  if (!user.email) {
+    return jsonNoStore({ error: 'Authenticated user missing email' }, { status: 400 });
+  }
+
+  if (file.size > MAX_AVATAR_BYTES) {
+    return jsonNoStore({ error: 'File too large' }, { status: 413 });
+  }
+
+  if (file.type && !file.type.startsWith('image/')) {
+    return jsonNoStore({ error: 'Invalid file type' }, { status: 400 });
+  }
+
+  const extRaw = (file.name.split('.').pop() || 'png').toLowerCase();
+  const ext = /^[a-z0-9]{1,10}$/.test(extRaw) ? extRaw : 'png';
+
+  try {
+    // Ensure bucket exists and is public (ignore if already created)
+    await admin.storage.createBucket(BUCKET, { public: true }).catch(() => {});
+
+    const { data: existingProfile } = await admin
+      .from('users')
+      .select('name, preferences')
+      .eq('id', user.id)
+      .single();
+
+    const displayName =
+      (existingProfile?.name as string | undefined) || user.email || 'Intellex User';
+    const existingPrefs = (existingProfile?.preferences as Record<string, unknown>) || {};
+
+    const arrayBuffer = await file.arrayBuffer();
+    const path = `${user.id}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+
+    const { error: uploadErr } = await admin.storage.from(BUCKET).upload(path, arrayBuffer, {
+      contentType: file.type || 'image/png',
+      upsert: true,
+    });
+    if (uploadErr) {
+      return jsonNoStore({ error: 'Upload failed' }, { status: 500 });
     }
 
-    const form = await req.formData();
-    const email = (form.get('email') as string | null)?.trim().toLowerCase();
-    const file = form.get('file') as File | null;
+    const { data: urlData } = admin.storage.from(BUCKET).getPublicUrl(path);
+    const publicUrl = urlData.publicUrl;
 
-    if (!email || !file) {
-        return NextResponse.json({ error: 'email and file are required' }, { status: 400 });
+    const { error: metaErr } = await admin.auth.admin.updateUserById(user.id, {
+      user_metadata: {
+        display_name: displayName,
+        avatar_url: publicUrl,
+      },
+    });
+    if (metaErr) {
+      return jsonNoStore({ error: 'Failed to update auth profile' }, { status: 500 });
     }
 
-    try {
-        // Ensure bucket exists and is public (ignore if already created)
-        await admin.storage.createBucket(BUCKET, { public: true }).catch(() => {});
+    const mergedPreferences = {
+      ...existingPrefs,
+      theme: (existingPrefs as { theme?: string }).theme || 'system',
+    };
 
-        // Find user
-        const { data: listData, error: listErr } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-        if (listErr) throw listErr;
-        const found = listData.users.find((u) => u.email?.toLowerCase() === email);
-        if (!found) return NextResponse.json({ error: 'User not found' }, { status: 400 });
-
-        const arrayBuffer = await file.arrayBuffer();
-        const ext = file.name.split('.').pop() || 'png';
-        const path = `${found.id}-${Date.now()}.${ext}`;
-
-        const { error: uploadErr } = await admin.storage.from(BUCKET).upload(path, arrayBuffer, {
-            contentType: file.type || 'image/png',
-            upsert: true,
-        });
-        if (uploadErr) throw uploadErr;
-
-        const { data: urlData } = admin.storage.from(BUCKET).getPublicUrl(path);
-        const publicUrl = urlData.publicUrl;
-
-        // Update auth metadata (avatar_url)
-        const { error: metaErr } = await admin.auth.admin.updateUserById(found.id, {
-            user_metadata: {
-                display_name: found.user_metadata?.display_name || found.email,
-                avatar_url: publicUrl,
-            },
-        });
-        if (metaErr) throw metaErr;
-
-        // Update profile row with avatar_url
-        const { data: profile, error: upsertErr } = await admin
-            .from('users')
-            .upsert({
-                id: found.id,
-                email,
-                name: found.user_metadata?.display_name || found.email,
-                avatar_url: publicUrl,
-                preferences: { theme: 'system' },
-            })
-            .select('id, email, name, avatar_url, preferences')
-            .single();
-        if (upsertErr) throw upsertErr;
-
-        return NextResponse.json({ avatarUrl: publicUrl, user: profile });
-    } catch (err) {
-        const message = err instanceof Error ? err.message : 'Upload failed';
-        return NextResponse.json({ error: message }, { status: 500 });
+    const { data: profile, error: upsertErr } = await admin
+      .from('users')
+      .upsert({
+        id: user.id,
+        email: user.email,
+        name: displayName,
+        avatar_url: publicUrl,
+        preferences: mergedPreferences,
+      })
+      .select('id, email, name, avatar_url, preferences')
+      .single();
+    if (upsertErr) {
+      return jsonNoStore({ error: 'Failed to update profile' }, { status: 500 });
     }
+
+    return jsonNoStore(
+      {
+        avatarUrl: publicUrl,
+        user: profile
+          ? {
+              ...profile,
+              preferences: sanitizePreferences(profile.preferences),
+            }
+          : null,
+      },
+      { status: 200 }
+    );
+  } catch {
+    return jsonNoStore({ error: 'Upload failed' }, { status: 500 });
+  }
 }

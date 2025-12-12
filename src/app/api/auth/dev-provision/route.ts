@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
-const allowDev = process.env.ENABLE_DEV_AUTH_AUTOCONFIRM === 'true';
+const allowDev = process.env.NODE_ENV !== 'production' && process.env.ENABLE_DEV_AUTH_AUTOCONFIRM === 'true';
 
 export async function POST(req: NextRequest) {
     if (!allowDev) {

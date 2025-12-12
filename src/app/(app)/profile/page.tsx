@@ -109,12 +109,19 @@ export default function ProfilePage() {
                 }
             }
 
+            const { data: sessionData } = await supabase.auth.getSession();
+            const accessToken = sessionData?.session?.access_token;
+            if (!accessToken) {
+                throw new Error('Missing auth session. Please re-login.');
+            }
+
             const res = await fetch('/api/profile', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    authorization: `Bearer ${accessToken}`,
+                },
                 body: JSON.stringify({
-                    userId: user.id,
-                    email: normalizedEmail,
                     name: formData.name.trim(),
                     avatarUrl: formData.avatarUrl || undefined,
                     title: formData.title,
@@ -147,10 +154,12 @@ export default function ProfilePage() {
     const loadPending = async () => {
         if (!formData.email) return;
         try {
-            const params = new URLSearchParams();
-            params.set('email', formData.email);
-            if (user?.id) params.set('userId', user.id);
-            const res = await fetch(`/api/profile/pending?${params.toString()}`);
+            const { data: sessionData } = await supabase.auth.getSession();
+            const accessToken = sessionData?.session?.access_token;
+            if (!accessToken) return;
+            const res = await fetch('/api/profile/pending', {
+                headers: { authorization: `Bearer ${accessToken}` },
+            });
             if (!res.ok) return;
             const data = await res.json();
             setPendingInfo({
@@ -172,10 +181,19 @@ export default function ProfilePage() {
         setProfileError(null);
         setProfileStatus(null);
         try {
+            const { data: sessionData } = await supabase.auth.getSession();
+            const accessToken = sessionData?.session?.access_token;
+            if (!accessToken) {
+                throw new Error('Missing auth session. Please re-login.');
+            }
+
             const form = new FormData();
-            form.append('email', formData.email);
             form.append('file', file);
-            const res = await fetch('/api/profile/avatar', { method: 'POST', body: form });
+            const res = await fetch('/api/profile/avatar', {
+                method: 'POST',
+                headers: { authorization: `Bearer ${accessToken}` },
+                body: form,
+            });
             if (!res.ok) {
                 const data = await res.json().catch(() => ({}));
                 throw new Error(data.error || 'Failed to upload avatar');

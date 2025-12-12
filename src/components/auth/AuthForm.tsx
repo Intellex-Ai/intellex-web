@@ -27,7 +27,6 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
     const [awaitingVerification, setAwaitingVerification] = useState(false);
     const [verificationMessage, setVerificationMessage] = useState<string | null>(null);
     const router = useRouter();
-    const pollRef = useRef<number | null>(null);
     const mfaInputRef = useRef<HTMLInputElement>(null);
 
     const { login, loginWithProvider, verifyMfa, mfaRequired, user } = useStore();
@@ -89,53 +88,6 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
             }
         };
     }, [redirectDest, router, syncSession]);
-
-    const clearVerificationPoll = useCallback(() => {
-        if (pollRef.current) {
-            clearInterval(pollRef.current);
-            pollRef.current = null;
-        }
-    }, []);
-
-    const startVerificationWatch = (targetEmail: string, pwd: string, providedName?: string) => {
-        clearVerificationPoll();
-        setAwaitingVerification(true);
-        setVerificationMessage('Waiting for verification... check your inbox.');
-
-        const poll = async () => {
-            try {
-                const res = await fetch(`/api/auth/confirm-status?email=${encodeURIComponent(targetEmail)}`);
-                if (!res.ok) return;
-                const data = (await res.json()) as { confirmed?: boolean };
-                if (data.confirmed) {
-                    setVerificationMessage('Verified. Signing you in...');
-                    clearVerificationPoll();
-                    try {
-                        const success = await login(targetEmail, pwd, providedName, 'login');
-                        const nextMfa = useStore.getState().mfaRequired;
-                        if (success && !nextMfa) {
-                            await syncSession();
-                            setTimeout(() => router.push(redirectDest), 100);
-                        }
-                    } catch (err) {
-                        setError(err instanceof Error ? err.message : 'Sign-in after verification failed.');
-                        setAwaitingVerification(false);
-                    }
-                }
-            } catch (err) {
-                console.warn('Verification poll failed', err);
-            }
-        };
-
-        poll();
-        pollRef.current = window.setInterval(poll, 4000);
-    };
-
-    useEffect(() => {
-        return () => {
-            clearVerificationPoll();
-        };
-    }, [clearVerificationPoll]);
 
     // Auto-focus MFA input on number keypress
     useEffect(() => {
@@ -204,7 +156,8 @@ export default function AuthForm({ type, redirectTo = '/dashboard' }: AuthFormPr
 
             // For signup flows, begin polling for cross-device verification instead of relying on local storage.
             if (type === 'signup' && msg.toLowerCase().includes('confirm')) {
-                startVerificationWatch(email.trim(), password.trim(), name.trim() || undefined);
+                setAwaitingVerification(true);
+                setVerificationMessage('Check your email to verify your account, then sign in.');
                 setError(null);
             }
         } finally {

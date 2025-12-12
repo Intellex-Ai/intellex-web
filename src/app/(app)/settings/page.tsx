@@ -14,6 +14,7 @@ import { DeviceService } from '@/services/api/device';
 import { ApiKeySummary, DeviceRecord } from '@/types';
 import { useToast } from '@/components/ui/ToastProvider';
 import { getDeviceId } from '@/lib/device';
+import { supabase } from '@/lib/supabase';
 
 const timezones = [
     { label: 'UTC', value: 'UTC' },
@@ -49,14 +50,21 @@ export default function SettingsPage() {
             setTimezone(nextTimezone);
             if (!user?.id) return;
             try {
+                const { data: sessionData } = await supabase.auth.getSession();
+                const accessToken = sessionData?.session?.access_token;
+                if (!accessToken) {
+                    throw new Error('Missing auth session. Please re-login.');
+                }
+
                 const res = await fetch('/api/profile', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        authorization: `Bearer ${accessToken}`,
+                    },
                     body: JSON.stringify({
-                        userId: user.id,
-                        name: user.name,
-                        email: user.email,
                         timezone: nextTimezone,
+                        name: user.name || user.email,
                         ...(user.avatarUrl ? { avatarUrl: user.avatarUrl } : {}),
                     }),
                 });

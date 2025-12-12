@@ -1,12 +1,18 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
+const jsonNoStore = (body: unknown, init?: ResponseInit) => {
+    const res = NextResponse.json(body, init);
+    res.headers.set('Cache-Control', 'no-store');
+    return res;
+};
+
 export async function GET() {
     const cookieStore = await cookies();
     const sessionCookie = cookieStore.get('google_oauth_session');
 
     if (!sessionCookie?.value) {
-        return NextResponse.json({ error: 'No session found' }, { status: 401 });
+        return jsonNoStore({ error: 'No session found' }, { status: 401 });
     }
 
     try {
@@ -15,11 +21,11 @@ export async function GET() {
         // Clear the cookie after reading
         cookieStore.delete('google_oauth_session');
 
-        return NextResponse.json({
+        return jsonNoStore({
             access_token: sessionData.access_token,
             refresh_token: sessionData.refresh_token,
         });
     } catch {
-        return NextResponse.json({ error: 'Invalid session data' }, { status: 400 });
+        return jsonNoStore({ error: 'Invalid session data' }, { status: 400 });
     }
 }

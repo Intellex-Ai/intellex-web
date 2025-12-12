@@ -124,7 +124,7 @@ export async function GET(req: NextRequest) {
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
             maxAge: 60, // 1 minute - just enough to complete the redirect
-            path: '/',
+            path: '/api/auth/google/session',
         });
 
         // Redirect to a client-side page that will finalize the session
