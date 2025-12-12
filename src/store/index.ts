@@ -29,6 +29,44 @@ const baseMfaState = {
     mfaFactorId: null as string | null,
 };
 
+const getDeviceTimezone = (): string | null => {
+    if (typeof window === 'undefined' || typeof Intl === 'undefined') return null;
+    try {
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        return typeof tz === 'string' && tz.trim() ? tz : null;
+    } catch {
+        return null;
+    }
+};
+
+const normalizeTimezone = (value: unknown): string | null => {
+    if (typeof value !== 'string') return null;
+    const tz = value.trim();
+    if (!tz) return null;
+    try {
+        if (typeof Intl !== 'undefined') {
+            // Validate IANA timezone if possible; ignore in non-Intl environments.
+            new Intl.DateTimeFormat('en-US', { timeZone: tz }).format();
+        }
+        return tz;
+    } catch {
+        return null;
+    }
+};
+
+const resolveTimezonePreference = (existing: string | undefined, prefs?: unknown): string => {
+    const prefTz =
+        prefs && typeof prefs === 'object'
+            ? normalizeTimezone((prefs as Record<string, unknown>).timezone)
+            : null;
+    if (prefTz) return prefTz;
+
+    const existingTz = normalizeTimezone(existing);
+    if (existingTz && existingTz !== 'UTC') return existingTz;
+
+    return getDeviceTimezone() || existingTz || 'UTC';
+};
+
 const clearAuthState = (set: (partial: Partial<AppState>) => void) => {
     set({
         user: null,
@@ -342,7 +380,8 @@ export const useStore = create<AppState>()(persist((set, get) => {
                     // Clear any revoked flag for this device before provisioning user.
                     await touchDevice(true);
                     const user = await AuthService.login(email, fallbackName, supabaseUserId);
-                    set({ user });
+                    const timezone = resolveTimezonePreference(get().timezone, user.preferences);
+                    set({ user, timezone });
                     await syncCookiesFromSession(false);
                     void touchDevice(false);
                     return true;
@@ -863,14 +902,17 @@ export const useStore = create<AppState>()(persist((set, get) => {
                             if (profile) {
                                 const safeName = profile.name || authProfile.name || '';
                                 const safeAvatar = profile.avatar_url ?? authProfile.avatarUrl ?? undefined;
+                                const preferences = normalizePreferences(profile.preferences);
+                                const timezone = resolveTimezonePreference(get().timezone, preferences);
                                 set({
                                     user: {
                                         id: profile.id,
                                         email: profile.email || authProfile.email || authUser.email || '',
                                         name: safeName,
                                         avatarUrl: safeAvatar,
-                                        preferences: normalizePreferences(profile.preferences),
+                                        preferences,
                                     },
+                                    timezone,
                                 });
                                 await syncSessionCookies({ accessToken, mfaPending: false });
                                 markMfaVerified(accessToken || undefined);
@@ -896,14 +938,17 @@ export const useStore = create<AppState>()(persist((set, get) => {
                             if (profile.id !== authUser.id) {
                                 throw new Error('Auth/profile mismatch');
                             }
+                            const preferences = normalizePreferences(profile.preferences);
+                            const timezone = resolveTimezonePreference(get().timezone, preferences);
                             set({
                                 user: {
                                     id: profile.id,
                                     email: profile.email,
                                     name: profile.name || authProfile.name || '',
                                     avatarUrl: profile.avatar_url ?? authProfile.avatarUrl ?? undefined,
-                                    preferences: normalizePreferences(profile.preferences),
+                                    preferences,
                                 },
+                                timezone,
                             });
                             await syncSessionCookies({ accessToken, mfaPending: false });
                             markMfaVerified(accessToken || undefined);
@@ -921,14 +966,17 @@ export const useStore = create<AppState>()(persist((set, get) => {
                     if (profileErrorNote) {
                         console.warn('Supabase profile fallback in use', profileErrorNote);
                     }
+                    const preferences = { theme: 'system' };
+                    const timezone = resolveTimezonePreference(get().timezone, preferences);
                     set({
                         user: {
                             id: authUser.id,
                             email: authProfile.email || authUser.email || '',
                             name: authProfile.name || '',
                             avatarUrl: authProfile.avatarUrl,
-                            preferences: { theme: 'system' },
+                            preferences,
                         },
+                        timezone,
                     });
                     await syncSessionCookies({ accessToken, mfaPending: false });
                     markMfaVerified(accessToken || undefined);
@@ -957,17 +1005,18 @@ export const useStore = create<AppState>()(persist((set, get) => {
         timezone: state.timezone,
     }),
     migrate: (persistedState, version): { user: User | null; timezone: string } => {
+        const deviceTimezone = getDeviceTimezone() || 'UTC';
         if (version < 2) {
             const legacy = persistedState as Partial<AppState>;
             return {
                 user: legacy.user ?? null,
-                timezone: legacy.timezone ?? 'UTC',
+                timezone: legacy.timezone ?? deviceTimezone,
             };
         }
         const current = persistedState as { user?: User | null; timezone?: string };
         return {
             user: current.user ?? null,
-            timezone: current.timezone ?? 'UTC',
+            timezone: current.timezone ?? deviceTimezone,
         };
     },
     onRehydrateStorage: () => (state) => {

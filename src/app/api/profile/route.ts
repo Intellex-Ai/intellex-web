@@ -45,7 +45,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Supabase service role not configured' }, { status: 500 });
     }
 
-    let payload: { userId?: string; email?: string; name?: string; avatarUrl?: string; title?: string; organization?: string; location?: string; bio?: string };
+    let payload: { userId?: string; email?: string; name?: string; avatarUrl?: string; title?: string; organization?: string; location?: string; bio?: string; timezone?: string };
     try {
         payload = await req.json();
     } catch {
@@ -60,6 +60,7 @@ export async function POST(req: Request) {
     const organization = payload.organization?.trim();
     const location = payload.location?.trim();
     const bio = payload.bio?.trim();
+    const timezone = payload.timezone?.trim();
 
     if ((!email && !userId) || !name) {
         return NextResponse.json({ error: 'email or userId and name are required' }, { status: 400 });
@@ -97,6 +98,7 @@ export async function POST(req: Request) {
         const mergedPreferences = {
             ...existingPrefs,
             theme: (existingPrefs as { theme?: string }).theme || 'system',
+            ...(timezone ? { timezone } : {}),
             ...(title !== undefined ? { title } : {}),
             ...(organization !== undefined ? { organization } : {}),
             ...(location !== undefined ? { location } : {}),

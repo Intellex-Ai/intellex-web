@@ -209,11 +209,13 @@ export function AppLayout({ children }: AppLayoutProps) {
             )}>
                 {/* Desktop Top Bar */}
                 <div className="hidden md:flex h-[80px] items-end justify-end px-8 pb-2 pointer-events-none relative overflow-visible">
-                    <DigitalClock
-                        scale="xs"
-                        timeZone={timezone}
-                        className="absolute right-20 bottom-[-100px] origin-top-right scale-[0.45] z-40 filter drop-shadow-[0_0_14px_rgba(255,77,0,0.9)] brightness-110"
-                    />
+                    {isHydrated && (
+                        <DigitalClock
+                            scale="xs"
+                            timeZone={timezone}
+                            className="absolute right-20 bottom-[-100px] origin-top-right scale-[0.45] z-40 filter drop-shadow-[0_0_14px_rgba(255,77,0,0.9)] brightness-110"
+                        />
+                    )}
                 </div>
 
                 <div className="flex-1 p-6 md:p-10 pt-[80px] md:pt-6 overflow-y-auto">

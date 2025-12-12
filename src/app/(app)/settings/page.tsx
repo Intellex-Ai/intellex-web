@@ -44,6 +44,44 @@ export default function SettingsPage() {
         setDeviceHydrated(true);
     }, []);
 
+    const handleTimezoneChange = useCallback(
+        async (nextTimezone: string) => {
+            setTimezone(nextTimezone);
+            if (!user?.id) return;
+            try {
+                const res = await fetch('/api/profile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: user.id,
+                        name: user.name,
+                        email: user.email,
+                        timezone: nextTimezone,
+                        ...(user.avatarUrl ? { avatarUrl: user.avatarUrl } : {}),
+                    }),
+                });
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    throw new Error(data.error || 'Failed to save timezone');
+                }
+            } catch (err) {
+                toast({
+                    variant: 'error',
+                    title: 'Timezone not saved',
+                    message: err instanceof Error ? err.message : 'Unable to save timezone.',
+                });
+            }
+        },
+        [setTimezone, user, toast]
+    );
+
+    const localTimezone =
+        typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : null;
+    const timezoneOptions =
+        localTimezone && !timezones.some((tz) => tz.value === localTimezone)
+            ? [{ label: `Local (${localTimezone})`, value: localTimezone }, ...timezones]
+            : timezones;
+
     const handleSignOut = async () => {
         await logout();
         router.push('/');
@@ -241,13 +279,13 @@ export default function SettingsPage() {
                         <div className="space-y-2">
                             <label className="text-xs font-mono text-muted uppercase tracking-wider">Timezone</label>
                             <div className="flex items-center gap-3 p-3 bg-black/50 border border-white/10 rounded-sm min-w-0">
-                                <Clock size={14} className="text-muted" />
-                                <select
-                                    value={timezone}
-                                    onChange={(e) => setTimezone(e.target.value)}
-                                    className="flex-1 min-w-0 bg-transparent text-sm text-white font-mono border border-white/10 px-2 py-1 outline-none focus:border-primary"
-                                >
-                                    {timezones.map((tz) => (
+                                    <Clock size={14} className="text-muted" />
+                                    <select
+                                        value={timezone}
+                                        onChange={(e) => void handleTimezoneChange(e.target.value)}
+                                        className="flex-1 min-w-0 bg-transparent text-sm text-white font-mono border border-white/10 px-2 py-1 outline-none focus:border-primary"
+                                    >
+                                    {timezoneOptions.map((tz) => (
                                         <option key={tz.value} value={tz.value} className="bg-black text-white">
                                             {tz.label}
                                         </option>
