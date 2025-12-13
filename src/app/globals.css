@@ -114,8 +114,9 @@ html.light .bg-black\/40,
 html.light .bg-black\/50,
 html.light .bg-black\/60,
 html.light .bg-black\/80,
-html.light .bg-black\/90 {
-  background-color: rgba(244, 244, 245, 0.9) !important;
+html.light .bg-black\/90,
+html.light .bg-black\/95 {
+  background-color: rgba(250, 250, 250, 0.95) !important;
 }
 
 /* Surface backgrounds */

@@ -76,22 +76,41 @@ export default function ProjectsPage() {
                     />
                 </div>
 
-                {/* Filters */}
-                <div className="flex items-center gap-1 bg-black/50 border border-white/10 p-1 overflow-x-auto max-w-full">
-                    {(['all', 'draft', 'active', 'completed', 'archived'] as const).map((f) => (
-                        <button
-                            key={f}
-                            onClick={() => setFilter(f)}
-                            className={clsx(
-                                "px-3 py-2 text-[10px] font-mono uppercase tracking-wider transition-all duration-300 shrink-0",
-                                filter === f
-                                    ? "bg-primary/10 text-primary border border-primary/20"
-                                    : "text-muted-foreground hover:text-white border border-transparent"
-                            )}
+                {/* Filters - Dropdown on mobile, buttons on desktop */}
+                <div className="flex items-center">
+                    {/* Mobile: Native Select Dropdown */}
+                    <div className="md:hidden w-full">
+                        <select
+                            value={filter}
+                            onChange={(e) => setFilter(e.target.value as typeof filter)}
+                            className="w-full bg-black/50 border border-white/10 text-white px-4 py-3 font-mono text-sm uppercase tracking-wider appearance-none cursor-pointer focus:outline-none focus:border-primary/50"
+                            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23a1a1aa'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '20px' }}
                         >
-                            {f}
-                        </button>
-                    ))}
+                            {(['all', 'draft', 'active', 'completed', 'archived'] as const).map((f) => (
+                                <option key={f} value={f} className="bg-black text-white">
+                                    {f.toUpperCase()}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Desktop: Button Row */}
+                    <div className="hidden md:flex items-center gap-1 bg-black/50 border border-white/10 p-1">
+                        {(['all', 'draft', 'active', 'completed', 'archived'] as const).map((f) => (
+                            <button
+                                key={f}
+                                onClick={() => setFilter(f)}
+                                className={clsx(
+                                    "px-4 py-2 text-xs font-mono uppercase tracking-wider transition-all duration-300",
+                                    filter === f
+                                        ? "bg-primary/10 text-primary border border-primary/20"
+                                        : "text-muted-foreground hover:text-white border border-transparent"
+                                )}
+                            >
+                                {f}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
 
