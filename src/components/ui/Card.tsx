@@ -2,6 +2,7 @@
 
 import React, { useRef, useState } from 'react';
 import clsx from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
     hoverEffect?: boolean;
@@ -29,11 +30,11 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
             <div
                 ref={ref || divRef}
                 onMouseMove={handleMouseMove}
-                className={clsx(
+                className={twMerge(clsx(
                     'bg-surface border border-white/5 p-6 md:p-8 relative overflow-hidden group flex flex-col transition-all duration-300',
                     hoverEffect && 'hover:border-primary/50 hover:shadow-[0_0_30px_-10px_rgba(255,77,0,0.2)] hover:-translate-y-1',
                     className
-                )}
+                ))}
                 {...props}
             >
                 {/* Spotlight Effect */}

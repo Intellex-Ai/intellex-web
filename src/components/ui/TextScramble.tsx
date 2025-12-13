@@ -24,7 +24,7 @@ export const TextScramble: React.FC<TextScrambleProps> = ({
 
     // Skip animation for low-end devices or reduced motion preference
     const shouldAnimate = !isLowEnd && !prefersReducedMotion;
-    
+
     // Use blur effect only on high-end devices
     const useBlur = level === 'high';
 
@@ -85,24 +85,26 @@ export const TextScramble: React.FC<TextScrambleProps> = ({
 
     return (
         <span ref={elementRef} className={className}>
-            {text.split('').map((char, index) => (
-                <motion.span
-                    key={index}
-                    initial={{ opacity: 0, filter: useBlur ? 'blur(8px)' : 'none' }}
-                    animate={
-                        index < visibleChars
-                            ? { opacity: 1, filter: 'blur(0px)' }
-                            : { opacity: 0, filter: useBlur ? 'blur(8px)' : 'none' }
-                    }
-                    transition={{
-                        duration: useBlur ? 0.3 : 0.15,
-                        ease: [0.23, 1, 0.32, 1],
-                    }}
-                    style={{ display: 'inline-block' }}
-                >
-                    {char === ' ' ? '\u00A0' : char}
-                </motion.span>
-            ))}
+            {text.split('').map((char, index) => {
+                const isVisible = index < visibleChars;
+                return (
+                    <motion.span
+                        key={`${char}-${index}`}
+                        initial={{ opacity: 0, filter: useBlur ? 'blur(8px)' : 'none' }}
+                        animate={{
+                            opacity: isVisible ? 1 : 0,
+                            filter: isVisible ? 'blur(0px)' : (useBlur ? 'blur(8px)' : 'none')
+                        }}
+                        transition={{
+                            duration: useBlur ? 0.3 : 0.15,
+                            ease: [0.23, 1, 0.32, 1],
+                        }}
+                        style={{ display: 'inline-block' }}
+                    >
+                        {char === ' ' ? '\u00A0' : char}
+                    </motion.span>
+                );
+            })}
         </span>
     );
 };

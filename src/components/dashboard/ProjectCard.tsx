@@ -55,18 +55,18 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onDel
 
     return (
         <Link href={`/research/${project.id}`} className="block h-full">
-            <Card hoverEffect spotlight className="h-full flex flex-col bg-black/50 backdrop-blur-sm p-6 md:p-8">
-                <div className="flex justify-between items-start mb-6">
-                    <Badge variant={getStatusVariant(project.status)} className="flex items-center gap-2">
+            <Card hoverEffect spotlight className="h-full flex flex-col bg-black/50 backdrop-blur-sm p-5 md:p-8 transition-all duration-300">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between mb-6">
+                    <Badge variant={getStatusVariant(project.status)} className="w-fit flex items-center gap-2">
                         {getStatusIcon(project.status)}
                         <span>{project.status}</span>
                     </Badge>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                         <span className="text-[10px] text-muted font-mono tracking-wider uppercase">
                             {`// ${formatDate(project.updatedAt)}`}
                         </span>
                         {(onShare || onEdit || onDelete) && (
-                            <div className="flex gap-1">
+                            <div className="flex flex-wrap items-center gap-1">
                                 {onShare && (
                                     <button
                                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); onShare(project); }}
@@ -96,7 +96,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onDel
                     </div>
                 </div>
 
-                <h3 className="text-xl font-mono font-bold mb-3 text-white tracking-tight uppercase">
+                <h3 className="text-xl font-mono font-bold mb-3 text-white tracking-tight uppercase break-words">
                     {project.title}
                 </h3>
 

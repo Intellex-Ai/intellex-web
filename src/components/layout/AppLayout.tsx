@@ -82,16 +82,92 @@ export function AppLayout({ children }: AppLayoutProps) {
                 </button>
             </header>
 
-            {/* Sidebar */}
+            {/* Mobile Sidebar - Slides from Right */}
             <aside className={clsx(
-                "fixed inset-y-0 left-0 z-40 flex flex-col bg-black border-r border-white/10 transition-all duration-300 ease-out",
-                // Base (Mobile)
-                "w-[280px] -translate-x-full",
-                isMobileMenuOpen && "translate-x-0",
+                "md:hidden fixed inset-y-0 right-0 z-40 flex flex-col bg-black/95 backdrop-blur-xl border-l border-white/10 transition-all duration-300 ease-out",
+                "w-[280px]",
+                isMobileMenuOpen ? "translate-x-0" : "translate-x-full"
+            )}>
+                {/* Mobile Sidebar Header */}
+                <div className="h-[64px] flex items-center justify-between px-6 border-b border-white/10">
+                    <span className="font-mono text-sm font-bold text-white uppercase tracking-wider">Menu</span>
+                    <button
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-white/5 transition-colors"
+                    >
+                        <X size={20} />
+                    </button>
+                </div>
 
-                // Desktop
-                "md:translate-x-0",
-                isSidebarOpen ? "md:w-[280px]" : "md:w-[80px]"
+                {/* Mobile Navigation */}
+                <nav className="flex-1 py-6 flex flex-col gap-2 px-4">
+                    {navItems.map((item) => {
+                        const isActive = pathname.startsWith(item.href);
+                        return (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className={clsx(
+                                    "flex items-center gap-4 px-5 py-4 transition-all duration-200 border-l-2",
+                                    isActive
+                                        ? "border-primary bg-gradient-to-r from-primary/20 to-transparent text-primary"
+                                        : "border-transparent text-muted-foreground hover:text-white hover:bg-white/5"
+                                )}
+                            >
+                                <item.icon
+                                    size={22}
+                                    className={clsx(
+                                        "shrink-0",
+                                        isActive && "text-primary drop-shadow-[0_0_12px_rgba(255,77,0,1)]"
+                                    )}
+                                />
+                                <span className={clsx(
+                                    "font-mono text-sm uppercase tracking-wider",
+                                    isActive && "font-bold text-primary"
+                                )}>
+                                    {item.label}
+                                </span>
+                            </Link>
+                        );
+                    })}
+                </nav>
+
+                {/* Mobile User Section */}
+                <div className="p-4 border-t border-white/10">
+                    <Link
+                        href="/profile"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="flex items-center gap-3 p-3 hover:bg-white/5 transition-colors"
+                    >
+                        <div className="w-12 h-12 rounded-full bg-zinc-900 border border-white/20 flex items-center justify-center text-primary shrink-0 relative overflow-hidden">
+                            {user?.avatarUrl ? (
+                                <Image src={user.avatarUrl} alt="avatar" fill className="object-cover" />
+                            ) : (
+                                <User size={20} />
+                            )}
+                        </div>
+                        <div className="flex flex-col overflow-hidden">
+                            <span className="font-mono font-bold text-sm text-white truncate uppercase">{displayName}</span>
+                            <span className="font-mono text-xs text-muted-foreground truncate">{displayEmail}</span>
+                        </div>
+                    </Link>
+
+                    <button
+                        onClick={handleSignOut}
+                        className="flex items-center gap-3 w-full px-4 py-3 mt-3 text-sm font-mono uppercase tracking-wider border border-white/10 text-muted-foreground hover:bg-error/10 hover:border-error/50 hover:text-error transition-all duration-200 disabled:opacity-50"
+                        disabled={isSigningOut}
+                    >
+                        <LogOut size={18} />
+                        <span>Sign Out</span>
+                    </button>
+                </div>
+            </aside>
+
+            {/* Desktop Sidebar - Slides from Left */}
+            <aside className={clsx(
+                "hidden md:flex fixed inset-y-0 left-0 z-40 flex-col bg-black border-r border-white/10 transition-all duration-300 ease-out",
+                isSidebarOpen ? "w-[280px]" : "w-[80px]"
             )}>
                 <div className="h-[80px] flex items-center justify-between px-6 border-b border-white/10">
                     <Link href="/dashboard" className={clsx(
@@ -218,7 +294,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                     )}
                 </div>
 
-                <div className="flex-1 p-6 md:p-10 pt-[80px] md:pt-6 overflow-y-auto">
+                <div className="flex-1 p-6 md:p-10 pt-[80px] md:pt-6 overflow-y-auto overflow-x-hidden">
                     {children}
                 </div>
             </main>
