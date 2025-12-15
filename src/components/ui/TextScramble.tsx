@@ -90,16 +90,25 @@ export const TextScramble: React.FC<TextScrambleProps> = ({
                 return (
                     <motion.span
                         key={`${char}-${index}`}
-                        initial={{ opacity: 0, filter: useBlur ? 'blur(8px)' : 'none' }}
+                        initial={{
+                            opacity: 0,
+                            filter: useBlur ? 'blur(8px)' : 'none',
+                            transform: 'translateZ(0)' // Force GPU layer
+                        }}
                         animate={{
                             opacity: isVisible ? 1 : 0,
-                            filter: isVisible ? 'blur(0px)' : (useBlur ? 'blur(8px)' : 'none')
+                            // Use 'none' instead of 'blur(0px)' to fully clear the filter
+                            filter: isVisible ? 'none' : (useBlur ? 'blur(8px)' : 'none'),
+                            transform: 'translateZ(0)'
                         }}
                         transition={{
                             duration: useBlur ? 0.3 : 0.15,
                             ease: [0.23, 1, 0.32, 1],
                         }}
-                        style={{ display: 'inline-block' }}
+                        style={{
+                            display: 'inline-block',
+                            willChange: useBlur ? 'filter, opacity' : 'opacity'
+                        }}
                     >
                         {char === ' ' ? '\u00A0' : char}
                     </motion.span>
