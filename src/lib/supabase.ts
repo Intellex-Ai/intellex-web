@@ -32,6 +32,9 @@ const createSupabaseClient = (): AuthOnlyClient => {
             unenroll: async () => ({ data: null, error: { message: 'Supabase not configured' } }),
             verify: async () => ({ data: null, error: { message: 'Supabase not configured' } }),
         },
+        getUserIdentities: async () => ({ data: { identities: [] }, error: null }),
+        linkIdentity: async () => ({ data: null, error: { message: 'Supabase not configured' } }),
+        unlinkIdentity: async () => ({ data: null, error: { message: 'Supabase not configured' } }),
     };
 
     return { auth: mockAuth } as unknown as AuthOnlyClient;

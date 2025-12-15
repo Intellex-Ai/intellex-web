@@ -3,15 +3,22 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useStore } from '@/store';
 import { useRouter } from 'next/navigation';
-import { User, Mail, CreditCard, BarChart3, Edit2, Save, CheckCircle2, Briefcase, Building2, MapPin, FileText, Shield, Trash2 } from 'lucide-react';
+import {
+    User, Mail, Edit2, Save, CheckCircle2, Briefcase, Building2, MapPin,
+    FileText, Shield, Trash2, Link2, ChevronDown, CreditCard, BarChart3,
+    HardDrive, Zap, X
+} from 'lucide-react';
 import { TextScramble } from '@/components/ui/TextScramble';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { MfaSetup } from '@/components/auth/MfaSetup';
+import { AuthProviders } from '@/components/auth/AuthProviders';
 import { AuthService } from '@/services/api/auth';
 import { supabase } from '@/lib/supabase';
 import { extractAuthProfile } from '@/lib/auth-metadata';
 import { getSiteUrl } from '@/lib/site-url';
+
+type SettingsTab = 'account' | 'security' | 'billing';
 
 export default function ProfilePage() {
     const router = useRouter();
@@ -25,6 +32,8 @@ export default function ProfilePage() {
     const [deleteError, setDeleteError] = useState<string | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState('');
     const [isDeleting, setIsDeleting] = useState(false);
+    const [dangerExpanded, setDangerExpanded] = useState(false);
+    const [activeTab, setActiveTab] = useState<SettingsTab>('account');
     const [formData, setFormData] = useState({
         name: user?.name || '',
         email: user?.email || '',
@@ -41,7 +50,6 @@ export default function ProfilePage() {
         refreshUser();
     }, [refreshUser]);
 
-    // Keep local form data in sync when the persisted user hydrates or updates.
     useEffect(() => {
         if (user) {
             setFormData({
@@ -56,7 +64,6 @@ export default function ProfilePage() {
         }
     }, [user]);
 
-    // Prefill profile fields from OAuth/Supabase metadata right after signup.
     useEffect(() => {
         const needsPrefill = !formData.name.trim() || !formData.email.trim() || !formData.avatarUrl;
         if (!needsPrefill || authPrefillAttempted.current || isEditing) return;
@@ -137,12 +144,11 @@ export default function ProfilePage() {
 
             setProfileStatus(
                 emailChanged
-                    ? 'Email change requested. Check your new inbox to confirm and sign in with the updated address.'
+                    ? 'Email change requested. Check your new inbox to confirm.'
                     : 'Profile updated.'
             );
             setIsEditing(false);
             await refreshUser();
-            setIsEditing(false);
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Failed to update profile';
             setProfileError(message);
@@ -235,7 +241,6 @@ export default function ProfilePage() {
             }
 
             await logout();
-            // Clear any persisted store snapshot to avoid showing stale data on next load.
             if (typeof window !== 'undefined') {
                 window.localStorage.removeItem('zustand-persist:intellex-store');
             }
@@ -248,77 +253,62 @@ export default function ProfilePage() {
         }
     };
 
+    const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
+        { id: 'account', label: 'Account', icon: <User size={14} /> },
+        { id: 'security', label: 'Security', icon: <Shield size={14} /> },
+        { id: 'billing', label: 'Billing', icon: <CreditCard size={14} /> },
+    ];
+
     return (
         <div className="min-h-screen bg-black animate-in fade-in duration-700 relative overflow-hidden">
             {/* Static Cyber Grid Background */}
             <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[length:50px_50px] [mask-image:radial-gradient(circle_at_center,black_40%,transparent_100%)] pointer-events-none" />
 
-            <div className="relative z-10 p-4 md:p-8 w-full">
+            <div className="relative z-10 px-2 py-4 sm:px-4 sm:py-6 md:p-8 lg:p-10 w-full">
                 {/* Header */}
-                <header className="mb-8 md:mb-12">
-                    <h1 className="text-2xl md:text-4xl font-mono font-bold mb-2 tracking-tighter text-white uppercase">
+                <header className="mb-8">
+                    <h1 className="text-2xl md:text-3xl font-mono font-bold mb-1 tracking-tighter text-white uppercase">
                         <TextScramble text="USER_PROFILE" />
                     </h1>
-                    <p className="text-muted font-mono text-xs md:text-sm tracking-wide">
-                        {`// IDENTITY_AND_SUBSCRIPTION`}
+                    <p className="text-muted font-mono text-xs tracking-wide">
+                        {`// IDENTITY_AND_SETTINGS`}
                     </p>
                 </header>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 pb-16">
-                    {/* Left Column: Identity */}
-                    <div className="lg:col-span-2 space-y-6">
-                        <section className="animate-in fade-in slide-in-from-bottom-4 fill-mode-backwards" style={{ animationDelay: '0ms' }}>
-                            <div className="flex items-center justify-between mb-6 pb-2 border-b border-white/10">
-                                <div className="flex items-center gap-3">
-                                    <User size={20} className="text-primary" />
-                                    <h2 className="text-lg font-bold text-white uppercase tracking-wide font-mono">Identity_Card</h2>
-                                </div>
-                                {!isEditing && (
-                                    <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => setIsEditing(true)}
-                                        leftIcon={<Edit2 size={14} />}
-                                        className="text-xs font-mono uppercase tracking-wider hover:bg-white/5 h-7"
-                                    >
-                                        Edit_Profile
-                                    </Button>
-                                )}
-                            </div>
+                {/* Two Column Layout */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10 pb-16">
 
-                            <div className="relative group">
-                                <div className="relative bg-white/5 border border-white/10 p-5 md:p-6 rounded-lg overflow-hidden">
-                                    {/* Original top highlight */}
-                                    <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                    {/* Left Column: Identity + Stats */}
+                    <div className="space-y-6">
+                        {/* Hero Identity Card */}
+                        <section className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <div className="relative bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/10 rounded-lg overflow-hidden h-full">
+                                {/* Top accent line */}
+                                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
 
-                                    {/* Background decoration - kept subtle */}
-                                    <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none opacity-50" />
-                                    <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-500/5 rounded-full blur-3xl -ml-24 -mb-24 pointer-events-none opacity-50" />
+                                {/* Background glow */}
+                                <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl -mr-48 -mt-48 pointer-events-none" />
 
-                                    <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-6 items-center relative z-10">
-                                        {/* Avatar Column */}
-                                        <div className="flex flex-col items-center gap-3">
-                                            <div className="relative group/avatar">
-                                                <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-black border-2 border-white/10 flex items-center justify-center text-primary relative overflow-hidden shadow-[0_0_40px_-10px_rgba(255,77,0,0.4)] transition-all duration-300 group-hover/avatar:border-primary/50 group-hover/avatar:shadow-[0_0_60px_-10px_rgba(255,77,0,0.6)]">
+                                <div className="relative p-6">
+                                    <div className="flex flex-col gap-6">
+                                        {/* Top row: Avatar + Name */}
+                                        <div className="flex items-start gap-5">
+                                            {/* Avatar */}
+                                            <div className="relative group/avatar shrink-0">
+                                                <div className="w-20 h-20 rounded-full bg-black border-2 border-white/10 flex items-center justify-center text-primary relative overflow-hidden shadow-[0_0_40px_-10px_rgba(255,77,0,0.4)] transition-all duration-300 group-hover/avatar:border-primary/50">
                                                     {formData.avatarUrl ? (
                                                         // eslint-disable-next-line @next/next/no-img-element
                                                         <img src={formData.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
                                                     ) : (
-                                                        <User size={48} className="opacity-50" />
+                                                        <User size={32} className="opacity-50" />
                                                     )}
 
-                                                    {/* Upload Overlay */}
-                                                    {(isEditing || !formData.avatarUrl) && (
-                                                        <div
-                                                            onClick={() => fileInputRef.current?.click()}
-                                                            className={`absolute inset-0 bg-black/70 flex flex-col items-center justify-center cursor-pointer transition-opacity duration-300 ${isEditing ? 'opacity-0 group-hover/avatar:opacity-100' : 'opacity-0'}`}
-                                                        >
-                                                            <div className="p-2 bg-white/10 rounded-full mb-1 backdrop-blur-sm">
-                                                                <Edit2 size={16} className="text-white" />
-                                                            </div>
-                                                            <span className="text-[9px] font-mono uppercase text-white tracking-wider">Change</span>
-                                                        </div>
-                                                    )}
+                                                    <div
+                                                        onClick={() => fileInputRef.current?.click()}
+                                                        className="absolute inset-0 bg-black/70 flex items-center justify-center cursor-pointer opacity-0 group-hover/avatar:opacity-100 transition-opacity"
+                                                    >
+                                                        <Edit2 size={16} className="text-white" />
+                                                    </div>
 
                                                     <input
                                                         ref={fileInputRef}
@@ -332,289 +322,290 @@ export default function ProfilePage() {
                                                     />
                                                 </div>
                                                 {avatarUploading && (
-                                                    <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 w-full text-center">
-                                                        <span className="text-[9px] text-primary font-mono animate-pulse">UPLOADING...</span>
-                                                    </div>
+                                                    <span className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[8px] text-primary font-mono animate-pulse">UPLOADING...</span>
                                                 )}
                                             </div>
 
-                                            {/* User Status Badge */}
-                                            <div className="flex flex-col items-center gap-1">
-                                                <div className="px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md">
-                                                    <span className="text-[9px] font-mono text-white/80 uppercase tracking-wider flex items-center gap-1.5">
-                                                        <div className={`w-1.5 h-1.5 rounded-full ${pendingInfo?.emailConfirmed ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]' : 'bg-yellow-500'}`} />
-                                                        {pendingInfo?.emailConfirmed ? 'Verified' : 'Unverified'}
-                                                    </span>
+                                            {/* Name + Handle */}
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-3 mb-1">
+                                                    <h2 className="text-xl font-mono font-bold text-white tracking-tight truncate">
+                                                        {formData.name || 'Anonymous User'}
+                                                    </h2>
+                                                    <div className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10 shrink-0">
+                                                        <span className="text-[8px] font-mono uppercase tracking-wider flex items-center gap-1">
+                                                            <div className={`w-1.5 h-1.5 rounded-full ${pendingInfo?.emailConfirmed ? 'bg-emerald-500' : 'bg-yellow-500'}`} />
+                                                            <span className="text-white/60">{pendingInfo?.emailConfirmed ? 'Verified' : 'Unverified'}</span>
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </div>
+                                                <p className="text-muted font-mono text-sm">@{formData.email.split('@')[0]}</p>
 
-                                        {/* Info Column */}
-                                        <div className="flex-1 min-w-0 space-y-4">
-                                            {/* Header / Name Section */}
-                                            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 pb-4 border-b border-white/5">
-                                                <div className="space-y-0.5">
-                                                    {isEditing ? (
-                                                        <div className="space-y-1">
-                                                            <label className="text-[9px] font-mono text-primary uppercase tracking-wider">Display Name</label>
-                                                            <Input
-                                                                value={formData.name}
-                                                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                                                className="font-mono text-lg font-bold bg-white/5 border-white/10 focus:border-primary/50 h-10"
-                                                                placeholder="ENTER_NAME"
-                                                            />
-                                                        </div>
-                                                    ) : (
-                                                        <>
-                                                            <h3 className="text-xl md:text-2xl text-white font-mono font-bold tracking-tight">
-                                                                {formData.name || 'Anonymous User'}
-                                                            </h3>
-                                                            <p className="text-xs font-mono text-muted flex items-center gap-2">
-                                                                @{formData.email.split('@')[0]}
-                                                            </p>
-                                                        </>
+                                                {/* Metadata */}
+                                                <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-[11px] text-white/50 font-mono">
+                                                    {formData.title && (
+                                                        <span className="flex items-center gap-1">
+                                                            <Briefcase size={10} className="text-primary/60" />
+                                                            {formData.title}
+                                                        </span>
+                                                    )}
+                                                    {formData.organization && (
+                                                        <span className="flex items-center gap-1">
+                                                            <Building2 size={10} className="text-primary/60" />
+                                                            {formData.organization}
+                                                        </span>
+                                                    )}
+                                                    {formData.location && (
+                                                        <span className="flex items-center gap-1">
+                                                            <MapPin size={10} className="text-primary/60" />
+                                                            {formData.location}
+                                                        </span>
                                                     )}
                                                 </div>
-
-                                                {isEditing && (
-                                                    <div className="flex items-center gap-2 self-start">
-                                                        <Button
-                                                            size="sm"
-                                                            variant="ghost"
-                                                            onClick={() => setIsEditing(false)}
-                                                            className="text-[10px] h-8 hover:bg-white/5 text-muted hover:text-white"
-                                                        >
-                                                            CANCEL
-                                                        </Button>
-                                                        <Button
-                                                            size="sm"
-                                                            onClick={handleSave}
-                                                            isLoading={isLoading}
-                                                            leftIcon={<Save size={12} />}
-                                                            className="bg-primary hover:bg-primary/90 text-black font-bold h-8 text-[10px]"
-                                                        >
-                                                            SAVE
-                                                        </Button>
-                                                    </div>
-                                                )}
                                             </div>
 
-                                            {/* Status Messages */}
-                                            {(profileStatus || profileError) && (
-                                                <div className={`p-2 rounded-sm border ${profileStatus ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-error/10 border-error/20 text-error'} font-mono text-[10px] flex items-center gap-2`}>
-                                                    {profileStatus ? <CheckCircle2 size={12} /> : <Shield size={12} />}
-                                                    {profileStatus || profileError}
-                                                </div>
+                                            {/* Edit button */}
+                                            {!isEditing && (
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() => setIsEditing(true)}
+                                                    leftIcon={<Edit2 size={12} />}
+                                                    className="text-[10px] font-mono uppercase tracking-wider hover:bg-white/5 h-8 shrink-0"
+                                                >
+                                                    Edit
+                                                </Button>
                                             )}
+                                        </div>
 
-                                            {/* Form Grid */}
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div className="space-y-1.5">
-                                                    <label className="text-[9px] font-mono text-muted uppercase tracking-wider flex items-center gap-1.5">
-                                                        <Mail size={10} /> Email Address
-                                                    </label>
-                                                    <div className="relative">
-                                                        <Input
-                                                            value={formData.email}
-                                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                                            className="font-mono bg-black/20 border-white/10 text-white/90 h-9 text-xs"
-                                                            disabled={!isEditing}
-                                                        />
-                                                        {!isEditing && <div className="absolute inset-0 bg-transparent cursor-default" />}
-                                                    </div>
+                                        {/* Bio */}
+                                        {formData.bio && !isEditing && (
+                                            <p className="text-sm text-white/60 font-mono leading-relaxed border-t border-white/5 pt-4">
+                                                {formData.bio}
+                                            </p>
+                                        )}
+
+                                        {/* Edit Form */}
+                                        {isEditing && (
+                                            <div className="space-y-4 border-t border-white/10 pt-4">
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <Input
+                                                        value={formData.name}
+                                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                                        className="font-mono bg-white/5 border-white/10 text-sm"
+                                                        placeholder="Display Name"
+                                                        leftIcon={<User size={12} />}
+                                                    />
+                                                    <Input
+                                                        value={formData.title}
+                                                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                                        className="font-mono bg-white/5 border-white/10 text-sm"
+                                                        placeholder="Title / Role"
+                                                        leftIcon={<Briefcase size={12} />}
+                                                    />
+                                                    <Input
+                                                        value={formData.organization}
+                                                        onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
+                                                        className="font-mono bg-white/5 border-white/10 text-sm"
+                                                        placeholder="Organization"
+                                                        leftIcon={<Building2 size={12} />}
+                                                    />
+                                                    <Input
+                                                        value={formData.location}
+                                                        onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                                                        className="font-mono bg-white/5 border-white/10 text-sm"
+                                                        placeholder="Location"
+                                                        leftIcon={<MapPin size={12} />}
+                                                    />
                                                 </div>
-
-                                                <div className="space-y-1.5">
-                                                    <label className="text-[9px] font-mono text-muted uppercase tracking-wider flex items-center gap-1.5">
-                                                        <Briefcase size={10} /> Title / Role
-                                                    </label>
-                                                    {isEditing ? (
-                                                        <Input
-                                                            value={formData.title}
-                                                            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                                            className="font-mono bg-black/20 border-white/10 h-9 text-xs"
-                                                            placeholder="e.g. Senior Researcher"
-                                                        />
-                                                    ) : (
-                                                        <div className="px-3 py-1.5 bg-white/5 border border-white/5 rounded-sm min-h-[36px] flex items-center">
-                                                            <span className="text-xs text-white font-mono">{formData.title || '—'}</span>
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                <div className="space-y-1.5">
-                                                    <label className="text-[9px] font-mono text-muted uppercase tracking-wider flex items-center gap-1.5">
-                                                        <Building2 size={10} /> Organization
-                                                    </label>
-                                                    {isEditing ? (
-                                                        <Input
-                                                            value={formData.organization}
-                                                            onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
-                                                            className="font-mono bg-black/20 border-white/10 h-9 text-xs"
-                                                            placeholder="e.g. Intellex Labs"
-                                                        />
-                                                    ) : (
-                                                        <div className="px-3 py-1.5 bg-white/5 border border-white/5 rounded-sm min-h-[36px] flex items-center">
-                                                            <span className="text-xs text-white font-mono">{formData.organization || '—'}</span>
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                <div className="space-y-1.5">
-                                                    <label className="text-[9px] font-mono text-muted uppercase tracking-wider flex items-center gap-1.5">
-                                                        <MapPin size={10} /> Location
-                                                    </label>
-                                                    {isEditing ? (
-                                                        <Input
-                                                            value={formData.location}
-                                                            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                                                            className="font-mono bg-black/20 border-white/10 h-9 text-xs"
-                                                            placeholder="e.g. San Francisco, CA"
-                                                        />
-                                                    ) : (
-                                                        <div className="px-3 py-1.5 bg-white/5 border border-white/5 rounded-sm min-h-[36px] flex items-center">
-                                                            <span className="text-xs text-white font-mono">{formData.location || '—'}</span>
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                <div className="space-y-1.5 md:col-span-2">
-                                                    <label className="text-[9px] font-mono text-muted uppercase tracking-wider flex items-center gap-1.5">
-                                                        <FileText size={10} /> Bio
-                                                    </label>
-                                                    {isEditing ? (
-                                                        <textarea
-                                                            value={formData.bio}
-                                                            onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                                                            className="w-full bg-black/20 border border-white/10 text-white font-mono text-xs p-2.5 outline-none focus:border-primary/50 rounded-sm min-h-[60px] resize-none"
-                                                            placeholder="Briefly describe your research focus..."
-                                                        />
-                                                    ) : (
-                                                        <div className="p-3 bg-white/5 border border-white/5 rounded-sm min-h-[60px]">
-                                                            <p className="text-xs text-white/80 font-mono whitespace-pre-wrap leading-relaxed">
-                                                                {formData.bio || 'No bio added yet.'}
-                                                            </p>
-                                                        </div>
-                                                    )}
+                                                <textarea
+                                                    value={formData.bio}
+                                                    onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                                                    className="w-full bg-white/5 border border-white/10 text-white font-mono text-sm p-3 outline-none focus:border-primary/50 rounded-sm min-h-[70px] resize-none"
+                                                    placeholder="Brief bio..."
+                                                />
+                                                <div className="flex items-center gap-2">
+                                                    <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)} leftIcon={<X size={12} />} className="text-muted hover:text-white">
+                                                        Cancel
+                                                    </Button>
+                                                    <Button size="sm" onClick={handleSave} isLoading={isLoading} leftIcon={<Save size={12} />} className="bg-primary hover:bg-primary/90 text-black font-bold">
+                                                        Save
+                                                    </Button>
                                                 </div>
                                             </div>
-                                        </div>
+                                        )}
+
+                                        {/* Status messages */}
+                                        {(profileStatus || profileError) && (
+                                            <div className={`p-2 rounded-sm border ${profileStatus ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-error/10 border-error/20 text-error'} font-mono text-[11px] flex items-center gap-2`}>
+                                                {profileStatus ? <CheckCircle2 size={12} /> : <Shield size={12} />}
+                                                {profileStatus || profileError}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
                         </section>
 
-                        <section className="animate-in fade-in slide-in-from-bottom-4 fill-mode-backwards" style={{ animationDelay: '100ms' }}>
-                            <div className="flex items-center gap-3 mb-6 pb-2 border-b border-white/10">
-                                <BarChart3 size={20} className="text-primary" />
-                                <h2 className="text-lg font-bold text-white uppercase tracking-wide font-mono">Usage_Stats</h2>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="bg-black/50 border border-white/10 p-4 rounded-sm">
-                                    <p className="text-xs text-muted font-mono uppercase mb-2">Research Queries</p>
-                                    <div className="flex items-end gap-2">
-                                        <span className="text-3xl font-bold text-white font-mono">15</span>
-                                        <span className="text-sm text-muted font-mono mb-1">/ 50</span>
+                        {/* Stats Cards */}
+                        <section className="animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div className="bg-white/5 border border-white/10 rounded-sm p-4">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Zap size={14} className="text-primary" />
+                                        <span className="text-[9px] font-mono text-muted uppercase">Queries</span>
                                     </div>
-                                    <div className="w-full h-1 bg-white/10 mt-4 rounded-full overflow-hidden">
+                                    <p className="text-xl font-bold font-mono text-white">15<span className="text-muted text-xs">/50</span></p>
+                                    <div className="w-full h-1 bg-white/10 mt-2 rounded-full overflow-hidden">
                                         <div className="h-full bg-primary w-[30%]" />
                                     </div>
                                 </div>
-                                <div className="bg-black/50 border border-white/10 p-4 rounded-sm">
-                                    <p className="text-xs text-muted font-mono uppercase mb-2">Storage Used</p>
-                                    <div className="flex items-end gap-2">
-                                        <span className="text-3xl font-bold text-white font-mono">1.2</span>
-                                        <span className="text-sm text-muted font-mono mb-1">GB</span>
+                                <div className="bg-white/5 border border-white/10 rounded-sm p-4">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <HardDrive size={14} className="text-blue-400" />
+                                        <span className="text-[9px] font-mono text-muted uppercase">Storage</span>
                                     </div>
-                                    <div className="w-full h-1 bg-white/10 mt-4 rounded-full overflow-hidden">
+                                    <p className="text-xl font-bold font-mono text-white">1.2<span className="text-muted text-xs">GB</span></p>
+                                    <div className="w-full h-1 bg-white/10 mt-2 rounded-full overflow-hidden">
                                         <div className="h-full bg-blue-500 w-[12%]" />
                                     </div>
                                 </div>
+                                <div className="bg-gradient-to-br from-primary/10 to-transparent border border-primary/20 rounded-sm p-4">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <BarChart3 size={14} className="text-primary" />
+                                        <span className="text-[9px] font-mono text-muted uppercase">Plan</span>
+                                    </div>
+                                    <p className="text-xl font-bold font-mono text-primary">PRO</p>
+                                    <p className="text-[9px] font-mono text-muted mt-1">Active</p>
+                                </div>
                             </div>
+                        </section>
+
+                        {/* Danger Zone */}
+                        <section className="animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200">
+                            <button
+                                onClick={() => setDangerExpanded(!dangerExpanded)}
+                                className="w-full flex items-center justify-between p-3 bg-error/5 border border-error/20 rounded-sm hover:bg-error/10 transition-colors"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <Trash2 size={14} className="text-error" />
+                                    <span className="text-xs font-mono text-error uppercase tracking-wider">Danger Zone</span>
+                                </div>
+                                <ChevronDown size={14} className={`text-error transition-transform ${dangerExpanded ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            {dangerExpanded && (
+                                <div className="animate-in fade-in slide-in-from-top-2 mt-2 bg-error/5 border border-error/20 rounded-sm p-4 space-y-3">
+                                    <p className="text-[11px] text-muted font-mono">Permanently delete your account. This cannot be undone.</p>
+                                    <Input
+                                        value={deleteConfirm}
+                                        onChange={(e) => setDeleteConfirm(e.target.value)}
+                                        placeholder="Type DELETE to confirm"
+                                        className="font-mono bg-black/40 border-error/40 text-error placeholder:text-error/60 text-sm"
+                                    />
+                                    {deleteError && (
+                                        <div className="p-2 rounded-sm border border-error/40 bg-error/10 text-error text-[10px] font-mono">{deleteError}</div>
+                                    )}
+                                    <Button
+                                        variant="danger"
+                                        className="w-full"
+                                        disabled={deleteConfirm.trim().toUpperCase() !== 'DELETE' || isDeleting}
+                                        isLoading={isDeleting}
+                                        leftIcon={<Trash2 size={12} />}
+                                        onClick={handleDeleteAccount}
+                                    >
+                                        Delete Account
+                                    </Button>
+                                </div>
+                            )}
                         </section>
                     </div>
 
-                    {/* Right Column: Subscription + Security */}
-                    <div className="md:col-span-1">
-                        <div className="grid grid-cols-1 gap-6 lg:gap-8">
-                            <section className="animate-in fade-in slide-in-from-bottom-4 fill-mode-backwards" style={{ animationDelay: '200ms' }}>
-                                <div className="flex items-center gap-3 mb-6 pb-2 border-b border-white/10">
-                                    <CreditCard size={20} className="text-primary" />
-                                    <h2 className="text-lg font-bold text-white uppercase tracking-wide font-mono">Plan</h2>
-                                </div>
-
-                                <div className="bg-gradient-to-b from-primary/10 to-black border border-primary/30 p-6 rounded-sm relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-20 h-20 bg-primary/20 blur-2xl rounded-full -mr-10 -mt-10" />
-
-                                    <div className="relative z-10">
-                                        <h3 className="text-2xl font-bold text-white font-mono mb-1">PRO PLAN</h3>
-                                        <p className="text-xs text-primary font-mono uppercase tracking-wider mb-6">Active Subscription</p>
-
-                                        <ul className="space-y-3 mb-8">
-                                            {[
-                                                'Unlimited Projects',
-                                                'GPT-4 Access',
-                                                'Priority Support',
-                                                'API Access'
-                                            ].map((feature, i) => (
-                                                <li key={i} className="flex items-center gap-2 text-sm text-white/80 font-mono">
-                                                    <CheckCircle2 size={14} className="text-primary" />
-                                                    {feature}
-                                                </li>
-                                            ))}
-                                        </ul>
-
-                                        <Button className="w-full" variant="secondary">
-                                            MANAGE_SUBSCRIPTION
-                                        </Button>
-                                    </div>
-                                </div>
-                            </section>
-
-                            <section className="animate-in fade-in slide-in-from-bottom-4 fill-mode-backwards" style={{ animationDelay: '250ms' }}>
-                                <div className="flex items-center gap-3 mb-4 pb-2 border-b border-white/10">
-                                    <User size={20} className="text-primary" />
-                                    <h2 className="text-lg font-bold text-white uppercase tracking-wide font-mono">Security</h2>
-                                </div>
-                                <MfaSetup onComplete={refreshUser} />
-                            </section>
-
-                            <section className="animate-in fade-in slide-in-from-bottom-4 fill-mode-backwards" style={{ animationDelay: '300ms' }}>
-                                <div className="flex items-center gap-3 mb-4 pb-2 border-b border-error/40">
-                                    <Trash2 size={20} className="text-error" />
-                                    <h2 className="text-lg font-bold text-error uppercase tracking-wide font-mono">Danger_Zone</h2>
-                                </div>
-                                <div className="bg-gradient-to-r from-error/10 via-black to-black border border-error/30 p-4 rounded-sm space-y-3">
-                                    <p className="text-xs text-muted font-mono leading-relaxed">
-                                        Permanently delete your profile, projects, plans, and messages. This action cannot be undone.
-                                    </p>
-                                    <div className="space-y-2">
-                                        <Input
-                                            value={deleteConfirm}
-                                            onChange={(e) => setDeleteConfirm(e.target.value)}
-                                            placeholder="Type DELETE to confirm"
-                                            className="font-mono bg-black/40 border-error/40 text-error placeholder:text-error/60"
-                                        />
-                                        {deleteError && (
-                                            <div className="p-2 rounded-sm border border-error/40 bg-error/10 text-error text-[11px] font-mono">
-                                                {deleteError}
-                                            </div>
-                                        )}
-                                        <Button
-                                            variant="danger"
-                                            className="w-full"
-                                            disabled={deleteConfirm.trim().toUpperCase() !== 'DELETE' || isDeleting}
-                                            isLoading={isDeleting}
-                                            leftIcon={<Trash2 size={14} />}
-                                            onClick={handleDeleteAccount}
+                    {/* Right Column: Tabbed Settings */}
+                    <div className="space-y-6">
+                        <section className="animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150">
+                            <div className="bg-white/[0.02] border border-white/10 rounded-lg overflow-hidden h-full">
+                                {/* Tab Headers */}
+                                <div className="flex border-b border-white/10">
+                                    {tabs.map((tab) => (
+                                        <button
+                                            key={tab.id}
+                                            onClick={() => setActiveTab(tab.id)}
+                                            className={`flex-1 flex items-center justify-center gap-2 px-3 sm:px-4 py-4 font-mono text-xs uppercase tracking-wider transition-all ${activeTab === tab.id
+                                                ? 'bg-white/5 text-white border-b-2 border-primary -mb-px'
+                                                : 'text-muted hover:text-white hover:bg-white/[0.02]'
+                                                }`}
                                         >
-                                            Delete Account
-                                        </Button>
-                                    </div>
+                                            {tab.icon}
+                                            <span className="hidden sm:inline">{tab.label}</span>
+                                        </button>
+                                    ))}
                                 </div>
-                            </section>
-                        </div>
+
+                                {/* Tab Content */}
+                                <div className="p-3 sm:p-4 md:p-6">
+                                    {activeTab === 'account' && (
+                                        <div className="space-y-6 animate-in fade-in duration-200">
+                                            <div>
+                                                <h3 className="text-xs font-mono text-white uppercase tracking-wider mb-3 flex items-center gap-2">
+                                                    <Mail size={12} className="text-primary" />
+                                                    Email Address
+                                                </h3>
+                                                <div className="bg-white/5 border border-white/10 rounded-sm p-3">
+                                                    <p className="text-sm font-mono text-white">{formData.email}</p>
+                                                    <p className="text-[9px] font-mono text-muted mt-1">
+                                                        {pendingInfo?.emailConfirmed ? 'Email verified' : 'Email not verified'}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <AuthProviders onComplete={refreshUser} />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {activeTab === 'security' && (
+                                        <div className="animate-in fade-in duration-200">
+                                            <h3 className="text-xs font-mono text-white uppercase tracking-wider mb-3 flex items-center gap-2">
+                                                <Shield size={12} className="text-primary" />
+                                                Two-Factor Authentication
+                                            </h3>
+                                            <MfaSetup onComplete={refreshUser} />
+                                        </div>
+                                    )}
+
+                                    {activeTab === 'billing' && (
+                                        <div className="animate-in fade-in duration-200">
+                                            <div className="bg-gradient-to-br from-primary/10 via-transparent to-transparent border border-primary/20 rounded-sm p-3 sm:p-5">
+                                                <div className="flex items-start justify-between mb-5">
+                                                    <div>
+                                                        <h3 className="text-xl font-bold text-white font-mono">PRO PLAN</h3>
+                                                        <p className="text-[10px] text-primary font-mono uppercase tracking-wider">Active Subscription</p>
+                                                    </div>
+                                                    <div className="px-2 py-1 bg-primary/20 rounded-sm">
+                                                        <span className="text-xs font-mono text-primary font-bold">$29/mo</span>
+                                                    </div>
+                                                </div>
+
+                                                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-5">
+                                                    {['Unlimited Projects', 'GPT-4 Access', 'Priority Support', 'API Access'].map((feature, i) => (
+                                                        <li key={i} className="flex items-center gap-2 text-xs text-white/70 font-mono">
+                                                            <CheckCircle2 size={12} className="text-primary shrink-0" />
+                                                            {feature}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+
+                                                <Button className="w-full" variant="secondary">
+                                                    Manage Subscription
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </section>
                     </div>
                 </div>
             </div>
