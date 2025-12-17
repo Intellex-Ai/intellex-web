@@ -46,7 +46,7 @@ export default function ProjectsPage() {
                         <TextScramble text="PROJECT_INDEX" />
                     </h1>
                     <p className="text-muted font-mono text-xs md:text-sm tracking-wide truncate">
-                        // MANAGE_RESEARCH_INITIATIVES
+                        MANAGE_RESEARCH_INITIATIVES
                     </p>
                 </div>
 

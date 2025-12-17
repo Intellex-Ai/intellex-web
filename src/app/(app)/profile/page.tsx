@@ -5,8 +5,7 @@ import { useStore } from '@/store';
 import { useRouter } from 'next/navigation';
 import {
     User, Mail, Edit2, Save, CheckCircle2, Briefcase, Building2, MapPin,
-    FileText, Shield, Trash2, Link2, ChevronDown, CreditCard, BarChart3,
-    HardDrive, Zap, X
+    Shield, Trash2, ChevronDown, CreditCard, BarChart3, HardDrive, Zap, X
 } from 'lucide-react';
 import { TextScramble } from '@/components/ui/TextScramble';
 import { Button } from '@/components/ui/Button';
