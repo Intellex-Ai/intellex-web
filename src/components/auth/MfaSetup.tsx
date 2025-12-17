@@ -199,6 +199,7 @@ export function MfaSetup({ onComplete }: MfaSetupProps) {
 
     const isEnabled = Boolean(verifiedFactorId);
     const showSetup = Boolean(totpUri && pendingFactorId);
+    const qrValue = totpUri ?? '';
 
     return (
         <div className="space-y-4 bg-white/5 border border-white/10 p-4 rounded-sm">
@@ -242,10 +243,10 @@ export function MfaSetup({ onComplete }: MfaSetupProps) {
                     </p>
                     <div className="flex flex-col gap-3 items-center">
                         <div className="bg-white p-3 border border-white/10">
-                            <QRCodeCanvas value={totpUri} size={QR_CODE_SIZE} includeMargin />
+                            <QRCodeCanvas value={qrValue} size={QR_CODE_SIZE} includeMargin />
                         </div>
                         <div className="bg-black/60 border border-white/10 p-3 rounded-sm break-all text-xs text-muted font-mono w-full">
-                            {totpUri}
+                            {qrValue}
                         </div>
                         <Button variant="secondary" className="w-full" isLoading={loading} onClick={startSetup}>
                             Regenerate QR
