@@ -39,6 +39,7 @@ export function MfaSetup({ onComplete }: MfaSetupProps) {
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [hasUnverifiedFactors, setHasUnverifiedFactors] = useState(false);
+    const [verifiedFactors, setVerifiedFactors] = useState<Array<{ id: string; factor_type: string; created_at: string; friendly_name?: string }>>([]);
 
     const loadFactors = useCallback(async () => {
         setError(null);
@@ -48,13 +49,21 @@ export function MfaSetup({ onComplete }: MfaSetupProps) {
             return;
         }
 
-        const totpFactors = list?.totp ?? [];
-        const verified = totpFactors.find((factor) => factor.status === 'verified');
-        const unverified = totpFactors.filter((factor) => factor.status !== 'verified');
+        const allFactors = list?.all ?? [];
+        const verified = allFactors.filter((factor) => factor.status === 'verified');
+        const unverified = allFactors.filter((factor) => factor.status !== 'verified');
         setHasUnverifiedFactors(unverified.length > 0);
+        setVerifiedFactors(
+            verified.map((factor) => ({
+                id: factor.id,
+                factor_type: factor.factor_type,
+                created_at: factor.created_at,
+                friendly_name: factor.friendly_name,
+            }))
+        );
 
-        if (verified) {
-            setVerifiedFactorId(verified.id);
+        if (verified.length > 0) {
+            setVerifiedFactorId(verified[0].id);
             setPendingFactorId(null);
             setTotpUri(null);
             setCode('');
@@ -63,7 +72,7 @@ export function MfaSetup({ onComplete }: MfaSetupProps) {
 
         setVerifiedFactorId(null);
         if (pendingFactorId) {
-            const stillExists = totpFactors.some((factor) => factor.id === pendingFactorId);
+            const stillExists = unverified.some((factor) => factor.id === pendingFactorId);
             if (!stillExists) {
                 setPendingFactorId(null);
                 setTotpUri(null);
@@ -93,13 +102,18 @@ export function MfaSetup({ onComplete }: MfaSetupProps) {
                 throw new Error(listError.message ?? 'Failed to load MFA factors');
             }
 
-            const totpFactors = list?.totp ?? [];
-            for (const factor of totpFactors) {
-                if (factor.status !== 'verified') {
-                    const { error: unenrollError } = await supabase.auth.mfa.unenroll({ factorId: factor.id });
-                    if (unenrollError) {
-                        throw new Error(unenrollError.message ?? 'Failed to clear existing MFA setup');
-                    }
+            const allFactors = list?.all ?? [];
+            const hasVerified = allFactors.some((factor) => factor.status === 'verified');
+            if (hasVerified) {
+                await loadFactors();
+                throw new Error('MFA is already enabled on this account. Disable an existing factor to continue.');
+            }
+
+            const unverifiedFactors = allFactors.filter((factor) => factor.status !== 'verified');
+            for (const factor of unverifiedFactors) {
+                const { error: unenrollError } = await supabase.auth.mfa.unenroll({ factorId: factor.id });
+                if (unenrollError) {
+                    throw new Error(unenrollError.message ?? 'Failed to clear existing MFA setup');
                 }
             }
 
@@ -171,15 +185,16 @@ export function MfaSetup({ onComplete }: MfaSetupProps) {
         }
     };
 
-    const disable = async () => {
-        if (!verifiedFactorId) {
+    const disable = async (factorId?: string) => {
+        const targetFactorId = factorId || verifiedFactorId;
+        if (!targetFactorId) {
             setError('No MFA factor found to disable.');
             return;
         }
         setLoading(true);
         setError(null);
         try {
-            const { error: unenrollError } = await supabase.auth.mfa.unenroll({ factorId: verifiedFactorId });
+            const { error: unenrollError } = await supabase.auth.mfa.unenroll({ factorId: targetFactorId });
             if (unenrollError) {
                 throw new Error(unenrollError.message ?? 'Failed to disable MFA');
             }
@@ -211,9 +226,28 @@ export function MfaSetup({ onComplete }: MfaSetupProps) {
                     <p className="text-sm text-muted">
                         MFA is active on your account. Use your authenticator app for sign-in. If you need to remove this factor (for example, device lost), you can disable it below and set it back up later.
                     </p>
-                    <Button variant="secondary" className="w-full" isLoading={loading} onClick={disable}>
-                        Disable MFA
-                    </Button>
+                    {verifiedFactors.length > 0 && (
+                        <div className="bg-black/40 border border-white/10 p-3 rounded-sm space-y-2">
+                            <p className="text-[11px] font-mono text-muted uppercase tracking-wider">Verified factors</p>
+                            <ul className="space-y-2">
+                                {verifiedFactors.map((factor) => (
+                                    <li key={factor.id} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                        <span className="break-all text-xs font-mono text-white/70">
+                                            {factor.friendly_name || factor.factor_type} ({factor.factor_type})
+                                        </span>
+                                        <Button
+                                            variant="secondary"
+                                            className="w-full sm:w-auto"
+                                            isLoading={loading}
+                                            onClick={() => disable(factor.id)}
+                                        >
+                                            Disable
+                                        </Button>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
                 </div>
             )}
             {!isEnabled && !showSetup && hasUnverifiedFactors && (
