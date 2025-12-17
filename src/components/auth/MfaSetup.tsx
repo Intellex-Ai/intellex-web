@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -10,86 +10,130 @@ interface MfaSetupProps {
     onComplete?: () => void;
 }
 
+const TOTP_ISSUER = 'Intellex';
+const TOTP_CODE_LENGTH = 6;
+const TOTP_PERIOD_SECONDS = 30;
+const QR_CODE_SIZE = 180;
+const FALLBACK_EMAIL = 'user@intellex.ai';
+
+function sanitizeTotpUri(rawUri: string, accountLabel: string) {
+    try {
+        const parsed = new URL(rawUri.replace('otpauth://', 'http://'));
+        const secret = parsed.searchParams.get('secret') ?? '';
+        return `otpauth://totp/${encodeURIComponent(TOTP_ISSUER)}:${encodeURIComponent(
+            accountLabel
+        )}?secret=${encodeURIComponent(secret)}&issuer=${encodeURIComponent(TOTP_ISSUER)}&digits=${encodeURIComponent(
+            String(TOTP_CODE_LENGTH)
+        )}&period=${encodeURIComponent(String(TOTP_PERIOD_SECONDS))}`;
+    } catch {
+        return rawUri;
+    }
+}
+
 export function MfaSetup({ onComplete }: MfaSetupProps) {
     const [totpUri, setTotpUri] = useState<string | null>(null);
-    const [factorId, setFactorId] = useState<string | null>(null);
+    const [verifiedFactorId, setVerifiedFactorId] = useState<string | null>(null);
+    const [pendingFactorId, setPendingFactorId] = useState<string | null>(null);
     const [code, setCode] = useState('');
     const [status, setStatus] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
-    const [allowEnroll, setAllowEnroll] = useState(true);
+    const [hasUnverifiedFactors, setHasUnverifiedFactors] = useState(false);
+
+    const loadFactors = useCallback(async () => {
+        setError(null);
+        const { data: list, error: listError } = await supabase.auth.mfa.listFactors();
+        if (listError) {
+            setError(listError.message ?? 'Failed to load MFA factors');
+            return;
+        }
+
+        const totpFactors = list?.totp ?? [];
+        const verified = totpFactors.find((factor) => factor.status === 'verified');
+        const unverified = totpFactors.filter((factor) => factor.status !== 'verified');
+        setHasUnverifiedFactors(unverified.length > 0);
+
+        if (verified) {
+            setVerifiedFactorId(verified.id);
+            setPendingFactorId(null);
+            setTotpUri(null);
+            setCode('');
+            return;
+        }
+
+        setVerifiedFactorId(null);
+        if (pendingFactorId) {
+            const stillExists = totpFactors.some((factor) => factor.id === pendingFactorId);
+            if (!stillExists) {
+                setPendingFactorId(null);
+                setTotpUri(null);
+                setCode('');
+            }
+        }
+    }, [pendingFactorId]);
 
     useEffect(() => {
-        const bootstrap = async () => {
-            setError(null);
-            setStatus(null);
-            const { data: authUser } = await supabase.auth.getUser();
-            const userEmail = authUser?.user?.email ?? 'user@intellex.ai';
-            const userLabel = authUser?.user?.user_metadata?.display_name || userEmail;
+        void loadFactors();
+    }, [loadFactors]);
 
+    const getUserLabel = async () => {
+        const { data: authUser } = await supabase.auth.getUser();
+        const userEmail = authUser?.user?.email ?? FALLBACK_EMAIL;
+        return authUser?.user?.user_metadata?.display_name || userEmail;
+    };
+
+    const startSetup = async () => {
+        setLoading(true);
+        setError(null);
+        setStatus(null);
+        try {
+            const userLabel = await getUserLabel();
             const { data: list, error: listError } = await supabase.auth.mfa.listFactors();
             if (listError) {
-                setError(listError.message ?? 'Failed to load MFA factors');
-                return;
-            }
-            const verified = list?.totp?.find((f) => f.status === 'verified');
-            if (verified) {
-                setStatus('TOTP enabled');
-                setFactorId(verified.id);
-                setTotpUri(null);
-                return;
+                throw new Error(listError.message ?? 'Failed to load MFA factors');
             }
 
-            if (!allowEnroll) {
-                setStatus('MFA disabled. Enable it again when you are ready.');
-                setFactorId(null);
-                setTotpUri(null);
-                return;
-            }
-
-            // Clean up stale unverified factors to avoid friendly-name collisions.
-            const existingTotp = list?.totp || [];
-            for (const factor of existingTotp) {
+            const totpFactors = list?.totp ?? [];
+            for (const factor of totpFactors) {
                 if (factor.status !== 'verified') {
-                    await supabase.auth.mfa.unenroll({ factorId: factor.id }).catch(() => {});
+                    const { error: unenrollError } = await supabase.auth.mfa.unenroll({ factorId: factor.id });
+                    if (unenrollError) {
+                        throw new Error(unenrollError.message ?? 'Failed to clear existing MFA setup');
+                    }
                 }
             }
 
-            const friendlyName = `Intellex TOTP ${Date.now()}`;
+            const friendlyName = `${TOTP_ISSUER} TOTP ${Date.now()}`;
             const { data, error: enrollError } = await supabase.auth.mfa.enroll({
                 factorType: 'totp',
                 friendlyName,
             });
             if (enrollError) {
-                setError(enrollError.message ?? 'Failed to enroll MFA factor');
-                return;
+                throw new Error(enrollError.message ?? 'Failed to enroll MFA factor');
             }
-            const enrolledFactorId = data?.id ?? null;
-            setFactorId(enrolledFactorId);
+
+            const enrolledFactorId = data?.id;
+            if (!enrolledFactorId) {
+                throw new Error('Missing factor ID from server; try again.');
+            }
+            setPendingFactorId(enrolledFactorId);
 
             const rawUri = data?.totp?.uri ?? null;
-            if (rawUri) {
-                try {
-                    const parsed = new URL(rawUri.replace('otpauth://', 'http://'));
-                    const secret = parsed.searchParams.get('secret') ?? '';
-                    const issuer = 'Intellex';
-                    const sanitized = `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(
-                        userLabel
-                    )}?secret=${encodeURIComponent(secret)}&issuer=${encodeURIComponent(issuer)}&digits=6&period=30`;
-                    setTotpUri(sanitized);
-                } catch {
-                    setTotpUri(rawUri);
-                }
-            } else {
-                setTotpUri(null);
+            if (!rawUri) {
+                throw new Error('Missing TOTP URI from server; try again.');
             }
-        };
-        bootstrap();
-    }, [allowEnroll]);
+            setTotpUri(sanitizeTotpUri(rawUri, userLabel));
+            setHasUnverifiedFactors(false);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to start MFA setup');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const verify = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!factorId) {
+        if (!pendingFactorId) {
             setError('Missing factor ID; try reloading the setup.');
             return;
         }
@@ -99,7 +143,7 @@ export function MfaSetup({ onComplete }: MfaSetupProps) {
         try {
             // Always start a fresh challenge for the factor before verifying.
             const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({
-                factorId,
+                factorId: pendingFactorId,
             });
             if (challengeError) {
                 throw new Error(challengeError.message ?? 'Failed to start MFA challenge');
@@ -110,13 +154,14 @@ export function MfaSetup({ onComplete }: MfaSetupProps) {
             }
 
             const { error: verifyError } = await supabase.auth.mfa.verify({
-                factorId,
+                factorId: pendingFactorId,
                 challengeId: freshChallengeId,
                 code,
             });
             if (verifyError) {
                 throw new Error(verifyError.message ?? 'Verification failed');
             }
+            await loadFactors();
             setStatus('TOTP enabled. Save your backup codes!');
             onComplete?.();
         } catch (err) {
@@ -127,22 +172,23 @@ export function MfaSetup({ onComplete }: MfaSetupProps) {
     };
 
     const disable = async () => {
-        if (!factorId) {
+        if (!verifiedFactorId) {
             setError('No MFA factor found to disable.');
             return;
         }
         setLoading(true);
         setError(null);
         try {
-            const { error: unenrollError } = await supabase.auth.mfa.unenroll({ factorId });
+            const { error: unenrollError } = await supabase.auth.mfa.unenroll({ factorId: verifiedFactorId });
             if (unenrollError) {
                 throw new Error(unenrollError.message ?? 'Failed to disable MFA');
             }
-            setStatus('MFA disabled. Enable it again when you are ready.');
-            setFactorId(null);
+            setVerifiedFactorId(null);
+            setPendingFactorId(null);
             setTotpUri(null);
             setCode('');
-            setAllowEnroll(false);
+            await loadFactors();
+            setStatus('MFA disabled. Enable it again when you are ready.');
             onComplete?.();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to disable MFA');
@@ -151,13 +197,8 @@ export function MfaSetup({ onComplete }: MfaSetupProps) {
         }
     };
 
-    const startEnrollment = () => {
-        setAllowEnroll(true);
-        setStatus(null);
-        setError(null);
-    };
-
-    const isEnabled = status?.toLowerCase().includes('enabled');
+    const isEnabled = Boolean(verifiedFactorId);
+    const showSetup = Boolean(totpUri && pendingFactorId);
 
     return (
         <div className="space-y-4 bg-white/5 border border-white/10 p-4 rounded-sm">
@@ -174,36 +215,49 @@ export function MfaSetup({ onComplete }: MfaSetupProps) {
                     </Button>
                 </div>
             )}
-            {!isEnabled && !allowEnroll && (
+            {!isEnabled && !showSetup && hasUnverifiedFactors && (
                 <div className="space-y-3">
-                    <p className="text-sm text-muted">MFA is currently off. Re-enable it to protect your account.</p>
-                    <Button variant="primary" className="w-full" onClick={startEnrollment}>
+                    <p className="text-sm text-muted">
+                        You have an unfinished MFA setup attempt. Restart setup to generate a fresh QR code.
+                    </p>
+                    <Button variant="primary" className="w-full" isLoading={loading} onClick={startSetup}>
+                        Restart Setup
+                    </Button>
+                </div>
+            )}
+            {!isEnabled && !showSetup && !hasUnverifiedFactors && (
+                <div className="space-y-3">
+                    <p className="text-sm text-muted">
+                        Add an authenticator app factor to protect your account with time-based one-time passwords (TOTP).
+                    </p>
+                    <Button variant="primary" className="w-full" isLoading={loading} onClick={startSetup}>
                         Enable MFA
                     </Button>
                 </div>
             )}
-            {!isEnabled && allowEnroll && (
+            {!isEnabled && showSetup && (
                 <>
                     <p className="text-sm text-muted">
                         Scan the QR in your authenticator app (Google Authenticator, 1Password, Authy), then enter the 6-digit code to verify. If QR scanning fails, copy the URI below.
                     </p>
-                    {totpUri && (
-                        <div className="flex flex-col gap-3 items-center">
-                            <div className="bg-white p-3 border border-white/10">
-                                <QRCodeCanvas value={totpUri} size={180} includeMargin />
-                            </div>
-                            <div className="bg-black/60 border border-white/10 p-3 rounded-sm break-all text-xs text-muted font-mono w-full">
-                                {totpUri}
-                            </div>
+                    <div className="flex flex-col gap-3 items-center">
+                        <div className="bg-white p-3 border border-white/10">
+                            <QRCodeCanvas value={totpUri} size={QR_CODE_SIZE} includeMargin />
                         </div>
-                    )}
+                        <div className="bg-black/60 border border-white/10 p-3 rounded-sm break-all text-xs text-muted font-mono w-full">
+                            {totpUri}
+                        </div>
+                        <Button variant="secondary" className="w-full" isLoading={loading} onClick={startSetup}>
+                            Regenerate QR
+                        </Button>
+                    </div>
                     <form className="space-y-3" onSubmit={verify}>
                         <Input
                             label="One-time code"
                             value={code}
                             onChange={(e) => setCode(e.target.value)}
                             placeholder="123456"
-                            maxLength={6}
+                            maxLength={TOTP_CODE_LENGTH}
                         />
                         <Button type="submit" isLoading={loading} className="w-full">
                             Verify & Enable

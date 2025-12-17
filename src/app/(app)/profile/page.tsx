@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useStore } from '@/store';
 import { useRouter } from 'next/navigation';
 import {
@@ -33,6 +33,11 @@ export default function ProfilePage() {
     const [isDeleting, setIsDeleting] = useState(false);
     const [dangerExpanded, setDangerExpanded] = useState(false);
     const [activeTab, setActiveTab] = useState<SettingsTab>('account');
+    const [mountedTabs, setMountedTabs] = useState<Record<SettingsTab, boolean>>({
+        account: true,
+        security: false,
+        billing: false,
+    });
     const [formData, setFormData] = useState({
         name: user?.name || '',
         email: user?.email || '',
@@ -156,8 +161,8 @@ export default function ProfilePage() {
         }
     };
 
-    const loadPending = async () => {
-        if (!formData.email) return;
+    const loadPending = useCallback(async (email: string) => {
+        if (!email) return;
         try {
             const { data: sessionData } = await supabase.auth.getSession();
             const accessToken = sessionData?.session?.access_token;
@@ -172,14 +177,18 @@ export default function ProfilePage() {
                 lastSignIn: data.user?.last_sign_in_at ?? null,
             });
         } catch {
-            // non-blocking
+            setPendingInfo(null);
         }
-    };
+    }, []);
 
     useEffect(() => {
-        loadPending();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [formData.email]);
+        void loadPending(formData.email);
+    }, [formData.email, loadPending]);
+
+    const handleTabSelect = (tabId: SettingsTab) => {
+        setActiveTab(tabId);
+        setMountedTabs((prev) => (prev[tabId] ? prev : { ...prev, [tabId]: true }));
+    };
 
     const handleAvatarUpload = async (file: File) => {
         setAvatarUploading(true);
@@ -529,7 +538,7 @@ export default function ProfilePage() {
                                     {tabs.map((tab) => (
                                         <button
                                             key={tab.id}
-                                            onClick={() => setActiveTab(tab.id)}
+                                            onClick={() => handleTabSelect(tab.id)}
                                             className={`flex-1 flex items-center justify-center gap-2 px-3 sm:px-4 py-4 font-mono text-xs uppercase tracking-wider transition-all ${activeTab === tab.id
                                                 ? 'bg-white/5 text-white border-b-2 border-primary -mb-px'
                                                 : 'text-muted hover:text-white hover:bg-white/[0.02]'
@@ -543,29 +552,27 @@ export default function ProfilePage() {
 
                                 {/* Tab Content */}
                                 <div className="p-3 sm:p-4 md:p-6">
-                                    {activeTab === 'account' && (
-                                        <div className="space-y-6 animate-in fade-in duration-200">
-                                            <div>
-                                                <h3 className="text-xs font-mono text-white uppercase tracking-wider mb-3 flex items-center gap-2">
-                                                    <Mail size={12} className="text-primary" />
-                                                    Email Address
-                                                </h3>
-                                                <div className="bg-white/5 border border-white/10 rounded-sm p-3">
-                                                    <p className="text-sm font-mono text-white">{formData.email}</p>
-                                                    <p className="text-[9px] font-mono text-muted mt-1">
-                                                        {pendingInfo?.emailConfirmed ? 'Email verified' : 'Email not verified'}
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <AuthProviders onComplete={refreshUser} />
+                                    <div className={activeTab === 'account' ? 'space-y-6 animate-in fade-in duration-200' : 'hidden'}>
+                                        <div>
+                                            <h3 className="text-xs font-mono text-white uppercase tracking-wider mb-3 flex items-center gap-2">
+                                                <Mail size={12} className="text-primary" />
+                                                Email Address
+                                            </h3>
+                                            <div className="bg-white/5 border border-white/10 rounded-sm p-3">
+                                                <p className="text-sm font-mono text-white">{formData.email}</p>
+                                                <p className="text-[9px] font-mono text-muted mt-1">
+                                                    {pendingInfo?.emailConfirmed ? 'Email verified' : 'Email not verified'}
+                                                </p>
                                             </div>
                                         </div>
-                                    )}
 
-                                    {activeTab === 'security' && (
-                                        <div className="animate-in fade-in duration-200">
+                                        <div>
+                                            <AuthProviders onComplete={refreshUser} />
+                                        </div>
+                                    </div>
+
+                                    {mountedTabs.security && (
+                                        <div className={activeTab === 'security' ? 'animate-in fade-in duration-200' : 'hidden'}>
                                             <h3 className="text-xs font-mono text-white uppercase tracking-wider mb-3 flex items-center gap-2">
                                                 <Shield size={12} className="text-primary" />
                                                 Two-Factor Authentication
@@ -574,8 +581,8 @@ export default function ProfilePage() {
                                         </div>
                                     )}
 
-                                    {activeTab === 'billing' && (
-                                        <div className="animate-in fade-in duration-200">
+                                    {mountedTabs.billing && (
+                                        <div className={activeTab === 'billing' ? 'animate-in fade-in duration-200' : 'hidden'}>
                                             <div className="bg-gradient-to-br from-primary/10 via-transparent to-transparent border border-primary/20 rounded-sm p-3 sm:p-5">
                                                 <div className="flex items-start justify-between mb-5">
                                                     <div>
@@ -588,8 +595,8 @@ export default function ProfilePage() {
                                                 </div>
 
                                                 <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-5">
-                                                    {['Unlimited Projects', 'GPT-4 Access', 'Priority Support', 'API Access'].map((feature, i) => (
-                                                        <li key={i} className="flex items-center gap-2 text-xs text-white/70 font-mono">
+                                                    {['Unlimited Projects', 'GPT-4 Access', 'Priority Support', 'API Access'].map((feature) => (
+                                                        <li key={feature} className="flex items-center gap-2 text-xs text-white/70 font-mono">
                                                             <CheckCircle2 size={12} className="text-primary shrink-0" />
                                                             {feature}
                                                         </li>
