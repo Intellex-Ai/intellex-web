@@ -28,6 +28,14 @@ const baseMfaState = {
     mfaChallengeId: null as string | null,
     mfaFactorId: null as string | null,
 };
+type MfaFactorList = Awaited<ReturnType<typeof supabase.auth.mfa.listFactors>>['data'];
+const MFA_FACTOR_CACHE_TTL_MS = 60 * 1000;
+type CachedMfaFactors = {
+    userId: string;
+    fetchedAt: number;
+    data: MfaFactorList;
+};
+let cachedMfaFactors: CachedMfaFactors | null = null;
 
 const getDeviceTimezone = (): string | null => {
     if (typeof window === 'undefined' || typeof Intl === 'undefined') return null;
@@ -78,9 +86,42 @@ const clearAuthState = (set: (partial: Partial<AppState>) => void) => {
     });
 };
 
+const clearMfaFactorCache = () => {
+    cachedMfaFactors = null;
+};
+
+const fetchMfaFactors = async (
+    userId?: string,
+): Promise<{ data: MfaFactorList | null; error: Error | null }> => {
+    let resolvedUserId = userId;
+    if (!resolvedUserId) {
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (userError || !userData?.user) {
+            return { data: null, error: userError || new Error('Supabase user required for MFA factors') };
+        }
+        resolvedUserId = userData.user.id;
+    }
+
+    const now = Date.now();
+    if (
+        cachedMfaFactors &&
+        cachedMfaFactors.userId === resolvedUserId &&
+        now - cachedMfaFactors.fetchedAt < MFA_FACTOR_CACHE_TTL_MS
+    ) {
+        return { data: cachedMfaFactors.data, error: null };
+    }
+
+    const { data, error } = await supabase.auth.mfa.listFactors();
+    if (!error && data) {
+        cachedMfaFactors = { userId: resolvedUserId, fetchedAt: now, data };
+    }
+    return { data: data ?? null, error: error || null };
+};
+
 const clearClientSession = (set: (partial: Partial<AppState>) => void) => {
     void syncSessionCookies({ accessToken: null, mfaPending: false });
     clearMfaVerified();
+    clearMfaFactorCache();
     clearPersistedStore();
     clearAuthState(set);
 };
@@ -139,7 +180,7 @@ const syncCookiesFromSession = async (mfaPending = false) => {
     }
 };
 
-interface AppState {
+export interface AppState {
     user: User | null;
     projects: ResearchProject[];
     activeProject: ResearchProject | null;
@@ -355,7 +396,10 @@ export const useStore = create<AppState>()(persist((set, get) => {
 
                     const supabaseUserId = authedUser?.user?.id;
                     // MFA gate: if a verified TOTP factor exists, start challenge and await code.
-                    const { data: factors } = await supabase.auth.mfa.listFactors();
+                    const { data: factors, error: factorError } = await fetchMfaFactors(supabaseUserId || undefined);
+                    if (factorError) {
+                        console.warn('Failed to load MFA factors', factorError);
+                    }
                     const verifiedTotp = factors?.totp?.find((f) => f.status === 'verified');
                     if (verifiedTotp) {
                         const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({
@@ -813,9 +857,9 @@ export const useStore = create<AppState>()(persist((set, get) => {
 
                     // Enforce MFA even for OAuth sessions: if a verified TOTP factor exists, start a challenge and gate login.
                     const { mfaRequired, mfaChallengeId, mfaFactorId } = get();
-                    const { data: factors, error: listError } = await supabase.auth.mfa.listFactors();
-                    if (listError) {
-                        console.error('Failed to list MFA factors', listError);
+                    const { data: factors, error: factorError } = await fetchMfaFactors(authUser.id);
+                    if (factorError) {
+                        console.error('Failed to list MFA factors', factorError);
                         if (mfaRequired || mfaChallengeId) {
                             // Stay locked until we can conclusively determine MFA status.
                             await syncSessionCookies({ accessToken, mfaPending: true });

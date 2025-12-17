@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 import { useStore } from '@/store';
@@ -82,52 +82,68 @@ const mapMessageRow = (row: Record<string, unknown>): ChatMessage | null => {
 };
 
 export const useRealtimeUpdates = () => {
-    const userId = useStore((state) => state.user?.id);
+    const userId = useStore((state) => state.user?.id ?? null);
+    const activeProjectId = useStore((state) => state.activeProject?.id ?? null);
     const upsertProject = useStore((state) => state.realtimeProjectUpsert);
     const deleteProject = useStore((state) => state.realtimeProjectDelete);
     const upsertMessage = useStore((state) => state.realtimeMessageUpsert);
     const channelRef = useRef<RealtimeChannel | null>(null);
+    const messageFilter = useMemo(
+        () => (activeProjectId ? `project_id=eq.${activeProjectId}` : null),
+        [activeProjectId],
+    );
 
     useEffect(() => {
-        if (!supabaseConfigured) return;
+        if (!supabaseConfigured || !userId) return;
 
-        // Clean up any previous subscription when user changes or logs out.
+        // Clean up any previous subscription when user changes or logs out or when the active project changes.
         if (channelRef.current) {
             void supabase.removeChannel(channelRef.current);
             channelRef.current = null;
         }
 
-        if (!userId) return;
+        const channelName = `realtime:user:${userId}${messageFilter ? `:project:${activeProjectId}` : ''}`;
+        const channel = supabase.channel(channelName);
 
-        const channel = supabase.channel(`realtime:user:${userId}`);
-
-        channel
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'projects', filter: `user_id=eq.${userId}` }, (payload) => {
+        channel.on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'projects', filter: `user_id=eq.${userId}` },
+            (payload) => {
                 if (payload.eventType === 'DELETE') {
-        const projectId = (payload.old as Record<string, unknown> | null)?.id as string | undefined;
-        if (projectId) {
-            deleteProject(projectId);
-        }
-        return;
-    }
-
-    const project = mapProjectRow((payload.new || {}) as Record<string, unknown>);
-    if (project) {
-        upsertProject(project);
-    }
-})
-.on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, (payload) => {
-    if (payload.eventType === 'DELETE') return;
-    const message = mapMessageRow((payload.new || {}) as Record<string, unknown>);
-    if (message) {
-        upsertMessage(message);
-    }
-            })
-            .subscribe((status) => {
-                if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-                    console.warn('Realtime subscription issue', status);
+                    const projectId = (payload.old as Record<string, unknown> | null)?.id as string | undefined;
+                    if (projectId) {
+                        deleteProject(projectId);
+                    }
+                    return;
                 }
-            });
+
+                const project = mapProjectRow((payload.new || {}) as Record<string, unknown>);
+                if (project) {
+                    upsertProject(project);
+                }
+            },
+        );
+
+        if (messageFilter) {
+            // Limit message streaming to the active project to avoid full-table WAL parsing.
+            channel.on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'messages', filter: messageFilter },
+                (payload) => {
+                    if (payload.eventType === 'DELETE') return;
+                    const message = mapMessageRow((payload.new || {}) as Record<string, unknown>);
+                    if (message) {
+                        upsertMessage(message);
+                    }
+                },
+            );
+        }
+
+        channel.subscribe((status) => {
+            if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                console.warn('Realtime subscription issue', status);
+            }
+        });
 
         channelRef.current = channel;
 
@@ -137,5 +153,5 @@ export const useRealtimeUpdates = () => {
                 channelRef.current = null;
             }
         };
-    }, [deleteProject, upsertMessage, upsertProject, userId]);
+    }, [activeProjectId, deleteProject, messageFilter, upsertMessage, upsertProject, userId]);
 };
