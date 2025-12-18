@@ -16,6 +16,7 @@ import { AuthService } from '@/services/api/auth';
 import { supabase } from '@/lib/supabase';
 import { extractAuthProfile } from '@/lib/auth-metadata';
 import { getSiteUrl } from '@/lib/site-url';
+import { getSessionUser } from '@/lib/auth-user';
 
 type SettingsTab = 'account' | 'security' | 'billing';
 
@@ -73,8 +74,7 @@ export default function ProfilePage() {
         if (!needsPrefill || authPrefillAttempted.current || isEditing) return;
 
         const hydrateFromAuth = async () => {
-            const { data } = await supabase.auth.getUser();
-            const authUser = data?.user;
+            const { user: authUser } = await getSessionUser();
             if (!authUser) return;
             const authProfile = extractAuthProfile(authUser);
             if (!authProfile.name && !authProfile.email && !authProfile.avatarUrl) return;
@@ -232,8 +232,8 @@ export default function ProfilePage() {
         setIsDeleting(true);
         setDeleteError(null);
         try {
-            const { data } = await supabase.auth.getUser();
-            const supabaseUserId = data?.user?.id;
+            const { user: authUser } = await getSessionUser();
+            const supabaseUserId = authUser?.id;
             if (!supabaseUserId) {
                 throw new Error('Missing Supabase auth session. Please re-login and try again.');
             }

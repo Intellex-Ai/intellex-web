@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getSessionUser } from '@/lib/auth-user';
+import { clearMfaFactorCache, fetchMfaFactors } from '@/lib/mfa';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -41,9 +43,9 @@ export function MfaSetup({ onComplete }: MfaSetupProps) {
     const [hasUnverifiedFactors, setHasUnverifiedFactors] = useState(false);
     const [verifiedFactors, setVerifiedFactors] = useState<Array<{ id: string; factor_type: string; created_at: string; friendly_name?: string }>>([]);
 
-    const loadFactors = useCallback(async () => {
+    const loadFactors = useCallback(async (forceRefresh = false) => {
         setError(null);
-        const { data: list, error: listError } = await supabase.auth.mfa.listFactors();
+        const { data: list, error: listError } = await fetchMfaFactors({ forceRefresh });
         if (listError) {
             setError(listError.message ?? 'Failed to load MFA factors');
             return;
@@ -86,9 +88,12 @@ export function MfaSetup({ onComplete }: MfaSetupProps) {
     }, [loadFactors]);
 
     const getUserLabel = async () => {
-        const { data: authUser } = await supabase.auth.getUser();
-        const userEmail = authUser?.user?.email ?? FALLBACK_EMAIL;
-        return authUser?.user?.user_metadata?.display_name || userEmail;
+        const { user, error } = await getSessionUser();
+        if (error || !user) {
+            return FALLBACK_EMAIL;
+        }
+        const userEmail = user.email ?? FALLBACK_EMAIL;
+        return (user.user_metadata?.display_name as string | undefined) || userEmail;
     };
 
     const startSetup = async () => {
@@ -97,7 +102,7 @@ export function MfaSetup({ onComplete }: MfaSetupProps) {
         setStatus(null);
         try {
             const userLabel = await getUserLabel();
-            const { data: list, error: listError } = await supabase.auth.mfa.listFactors();
+            const { data: list, error: listError } = await fetchMfaFactors({ forceRefresh: true });
             if (listError) {
                 throw new Error(listError.message ?? 'Failed to load MFA factors');
             }
@@ -105,7 +110,7 @@ export function MfaSetup({ onComplete }: MfaSetupProps) {
             const allFactors = list?.all ?? [];
             const hasVerified = allFactors.some((factor) => factor.status === 'verified');
             if (hasVerified) {
-                await loadFactors();
+                await loadFactors(true);
                 throw new Error('MFA is already enabled on this account. Disable an existing factor to continue.');
             }
 
@@ -116,6 +121,7 @@ export function MfaSetup({ onComplete }: MfaSetupProps) {
                     throw new Error(unenrollError.message ?? 'Failed to clear existing MFA setup');
                 }
             }
+            clearMfaFactorCache();
 
             const friendlyName = `${TOTP_ISSUER} TOTP ${Date.now()}`;
             const { data, error: enrollError } = await supabase.auth.mfa.enroll({
@@ -175,7 +181,8 @@ export function MfaSetup({ onComplete }: MfaSetupProps) {
             if (verifyError) {
                 throw new Error(verifyError.message ?? 'Verification failed');
             }
-            await loadFactors();
+            clearMfaFactorCache();
+            await loadFactors(true);
             setStatus('TOTP enabled. Save your backup codes!');
             onComplete?.();
         } catch (err) {
@@ -202,7 +209,8 @@ export function MfaSetup({ onComplete }: MfaSetupProps) {
             setPendingFactorId(null);
             setTotpUri(null);
             setCode('');
-            await loadFactors();
+            clearMfaFactorCache();
+            await loadFactors(true);
             setStatus('MFA disabled. Enable it again when you are ready.');
             onComplete?.();
         } catch (err) {

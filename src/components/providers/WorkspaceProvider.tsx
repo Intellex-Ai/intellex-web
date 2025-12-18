@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { getSessionUser } from '@/lib/auth-user';
 
 interface Workspace {
     id: string;
@@ -25,8 +25,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         async function loadWorkspaces() {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
+            const { user, error } = await getSessionUser();
+            if (error || !user) {
                 setWorkspaces([]);
                 setWorkspaceId(null);
                 setLoading(false);

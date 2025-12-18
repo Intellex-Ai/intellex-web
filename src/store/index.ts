@@ -11,6 +11,8 @@ import { API_BASE_URL } from '@/services/api/client';
 import { getSiteUrl } from '@/lib/site-url';
 import { syncSessionCookies } from '@/lib/cookies';
 import { extractAuthProfile } from '@/lib/auth-metadata';
+import { getSessionUser } from '@/lib/auth-user';
+import { fetchMfaFactors, clearMfaFactorCache } from '@/lib/mfa';
 import { ActivityItem, ProjectStats } from '@/types';
 
 type ProfileRow = {
@@ -28,14 +30,6 @@ const baseMfaState = {
     mfaChallengeId: null as string | null,
     mfaFactorId: null as string | null,
 };
-type MfaFactorList = Awaited<ReturnType<typeof supabase.auth.mfa.listFactors>>['data'];
-const MFA_FACTOR_CACHE_TTL_MS = 60 * 1000;
-type CachedMfaFactors = {
-    userId: string;
-    fetchedAt: number;
-    data: MfaFactorList;
-};
-let cachedMfaFactors: CachedMfaFactors | null = null;
 
 const getDeviceTimezone = (): string | null => {
     if (typeof window === 'undefined' || typeof Intl === 'undefined') return null;
@@ -84,38 +78,6 @@ const clearAuthState = (set: (partial: Partial<AppState>) => void) => {
         activePlan: null,
         ...baseMfaState,
     });
-};
-
-const clearMfaFactorCache = () => {
-    cachedMfaFactors = null;
-};
-
-const fetchMfaFactors = async (
-    userId?: string,
-): Promise<{ data: MfaFactorList | null; error: Error | null }> => {
-    let resolvedUserId = userId;
-    if (!resolvedUserId) {
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-        if (userError || !userData?.user) {
-            return { data: null, error: userError || new Error('Supabase user required for MFA factors') };
-        }
-        resolvedUserId = userData.user.id;
-    }
-
-    const now = Date.now();
-    if (
-        cachedMfaFactors &&
-        cachedMfaFactors.userId === resolvedUserId &&
-        now - cachedMfaFactors.fetchedAt < MFA_FACTOR_CACHE_TTL_MS
-    ) {
-        return { data: cachedMfaFactors.data, error: null };
-    }
-
-    const { data, error } = await supabase.auth.mfa.listFactors();
-    if (!error && data) {
-        cachedMfaFactors = { userId: resolvedUserId, fetchedAt: now, data };
-    }
-    return { data: data ?? null, error: error || null };
 };
 
 const clearClientSession = (set: (partial: Partial<AppState>) => void) => {
@@ -220,12 +182,11 @@ export interface AppState {
 export const useStore = create<AppState>()(persist((set, get) => {
     const ensureBackendUser = async (): Promise<User> => {
         const { user } = get();
-        const { data, error } = await supabase.auth.getUser();
-        if (error || !data?.user) {
+        const { user: authUser, error } = await getSessionUser();
+        if (error || !authUser) {
             throw new Error('Supabase session is required to manage projects.');
         }
 
-        const authUser = data.user;
         const authProfile = extractAuthProfile(authUser);
         const email = authUser.email || user?.email;
         if (!email) {
@@ -329,6 +290,7 @@ export const useStore = create<AppState>()(persist((set, get) => {
                                 .catch(() => {});
                             throw new Error('Email not confirmed. We just re-sent a verification link.');
                         }
+                        return data.user ?? data.session?.user ?? null;
                     };
 
                     const resendConfirmation = async () => {
@@ -345,13 +307,16 @@ export const useStore = create<AppState>()(persist((set, get) => {
                         });
                     };
 
+                    type SignInUser = Awaited<ReturnType<typeof signInPassword>>;
+                    let loginUser: SignInUser = null;
+
                     if (mode === 'signup') {
                         if (!name) {
                             throw new Error('Name is required for signup');
                         }
                         const provisioned = await maybeProvision();
                         if (provisioned) {
-                            await signInPassword();
+                            loginUser = await signInPassword();
                         } else {
                             const baseUrl = getSiteBaseUrl();
                             const redirectTo = baseUrl
@@ -382,21 +347,26 @@ export const useStore = create<AppState>()(persist((set, get) => {
                             throw new Error('Please confirm your email to activate your account. Check your inbox for the link.');
                         }
                     } else {
-                        await signInPassword();
+                        loginUser = await signInPassword();
                     }
 
                     // Derive best-available display name from provided name or Supabase auth metadata.
                     let displayName = name;
-                    const { data: authedUser } = await supabase.auth.getUser();
-                    const authProfile = extractAuthProfile(authedUser?.user);
+                    const { user: authedUser, error: authUserError } = loginUser
+                        ? { user: loginUser, error: null }
+                        : await getSessionUser();
+                    if (authUserError || !authedUser) {
+                        throw new Error('Supabase session is required to continue login.');
+                    }
+                    const authProfile = extractAuthProfile(authedUser);
                     if (!displayName) {
                         displayName = authProfile.name;
                     }
                     const fallbackName = displayName || (email.includes('@') ? email.split('@')[0] : email);
 
-                    const supabaseUserId = authedUser?.user?.id;
+                    const supabaseUserId = authedUser.id;
                     // MFA gate: if a verified TOTP factor exists, start challenge and await code.
-                    const { data: factors, error: factorError } = await fetchMfaFactors(supabaseUserId || undefined);
+                    const { data: factors, error: factorError } = await fetchMfaFactors({ userId: supabaseUserId || undefined });
                     if (factorError) {
                         console.warn('Failed to load MFA factors', factorError);
                     }
@@ -836,14 +806,16 @@ export const useStore = create<AppState>()(persist((set, get) => {
                         return;
                     }
 
-                    const { data: userData, error: userError } = await supabase.auth.getUser();
-                    if (userError) {
-                        console.error('Failed to get Supabase user', userError);
-                        await syncSessionCookies({ accessToken: null, mfaPending: false });
-                        return;
+                    let authUser = sessionData?.session?.user ?? null;
+                    if (!authUser) {
+                        const { user: sessionUser, error: authUserError } = await getSessionUser();
+                        if (authUserError) {
+                            console.error('Failed to get Supabase user', authUserError);
+                            await syncSessionCookies({ accessToken: null, mfaPending: false });
+                            return;
+                        }
+                        authUser = sessionUser;
                     }
-
-                    const authUser = userData?.user;
                     if (!authUser) {
                         set({
                             user: null,
@@ -857,7 +829,7 @@ export const useStore = create<AppState>()(persist((set, get) => {
 
                     // Enforce MFA even for OAuth sessions: if a verified TOTP factor exists, start a challenge and gate login.
                     const { mfaRequired, mfaChallengeId, mfaFactorId } = get();
-                    const { data: factors, error: factorError } = await fetchMfaFactors(authUser.id);
+                    const { data: factors, error: factorError } = await fetchMfaFactors({ userId: authUser.id });
                     if (factorError) {
                         console.error('Failed to list MFA factors', factorError);
                         if (mfaRequired || mfaChallengeId) {
