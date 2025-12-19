@@ -25,6 +25,7 @@ type ProfileRow = {
 
 const MFA_VERIFIED_KEY = 'intellex:mfa-verified';
 const STORE_KEY = 'intellex-store';
+const AUTH_SESSION_REQUIRED_MESSAGE = 'Supabase session is required to continue login.';
 const baseMfaState = {
     mfaRequired: false,
     mfaChallengeId: null as string | null,
@@ -290,7 +291,11 @@ export const useStore = create<AppState>()(persist((set, get) => {
                                 .catch(() => {});
                             throw new Error('Email not confirmed. We just re-sent a verification link.');
                         }
-                        return data.user ?? data.session?.user ?? null;
+                        const signedInUser = data.user ?? data.session?.user;
+                        if (!signedInUser) {
+                            throw new Error(AUTH_SESSION_REQUIRED_MESSAGE);
+                        }
+                        return signedInUser;
                     };
 
                     const resendConfirmation = async () => {
@@ -308,7 +313,7 @@ export const useStore = create<AppState>()(persist((set, get) => {
                     };
 
                     type SignInUser = Awaited<ReturnType<typeof signInPassword>>;
-                    let loginUser: SignInUser = null;
+                    let loginUser: SignInUser | null = null;
 
                     if (mode === 'signup') {
                         if (!name) {
@@ -356,7 +361,7 @@ export const useStore = create<AppState>()(persist((set, get) => {
                         ? { user: loginUser, error: null }
                         : await getSessionUser();
                     if (authUserError || !authedUser) {
-                        throw new Error('Supabase session is required to continue login.');
+                        throw new Error(AUTH_SESSION_REQUIRED_MESSAGE);
                     }
                     const authProfile = extractAuthProfile(authedUser);
                     if (!displayName) {
