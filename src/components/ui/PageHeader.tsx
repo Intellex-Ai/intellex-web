@@ -1,13 +1,19 @@
 "use client";
 
-import { motion } from 'framer-motion';
 import { BackButton } from '@/components/ui/BackButton';
+import { Reveal } from '@/components/ui/Reveal';
 
 interface PageHeaderProps {
     title: string;
     description: string;
     badge?: string;
 }
+
+const HEADER_REVEAL_DELAYS = {
+    badge: 0,
+    title: 0.1,
+    description: 0.2,
+};
 
 export default function PageHeader({ title, description, badge }: PageHeaderProps) {
     return (
@@ -24,32 +30,24 @@ export default function PageHeader({ title, description, badge }: PageHeaderProp
                 </div>
 
                 {badge && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="inline-block mb-6 px-3 py-1 border border-primary/30 bg-primary/10 rounded-full"
-                    >
-                        <span className="font-mono text-xs text-primary uppercase tracking-wider">{badge}</span>
-                    </motion.div>
+                    <Reveal delay={HEADER_REVEAL_DELAYS.badge}>
+                        <div className="inline-block mb-6 px-3 py-1 border border-primary/30 bg-primary/10 rounded-full">
+                            <span className="font-mono text-xs text-primary uppercase tracking-wider">{badge}</span>
+                        </div>
+                    </Reveal>
                 )}
 
-                <motion.h1
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 }}
-                    className="text-5xl md:text-7xl font-black text-white mb-6 tracking-tighter uppercase"
-                >
-                    {title}
-                </motion.h1>
+                <Reveal delay={HEADER_REVEAL_DELAYS.title}>
+                    <h1 className="text-5xl md:text-7xl font-black text-white mb-6 tracking-tighter uppercase">
+                        {title}
+                    </h1>
+                </Reveal>
 
-                <motion.p
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                    className="text-lg md:text-xl text-muted font-mono uppercase leading-relaxed max-w-2xl mx-auto"
-                >
-                    {description}
-                </motion.p>
+                <Reveal delay={HEADER_REVEAL_DELAYS.description}>
+                    <p className="text-lg md:text-xl text-muted font-mono uppercase leading-relaxed max-w-2xl mx-auto">
+                        {description}
+                    </p>
+                </Reveal>
             </div>
         </section>
     );

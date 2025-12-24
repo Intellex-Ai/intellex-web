@@ -1,6 +1,8 @@
+import { MarketingPanel } from '@/components/marketing/MarketingPanel';
 import PageHeader from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
-import { Reveal } from '@/components/ui/Reveal';
+
+const ROLE_STAGGER_DELAY = 0.05;
 
 export default function CareersPage() {
     return (
@@ -13,8 +15,8 @@ export default function CareersPage() {
             <div className="container mx-auto px-6 py-20 max-w-4xl">
                 <div className="space-y-6">
                     {['Senior Frontend Engineer', 'AI Research Scientist', 'Product Designer'].map((role, idx) => (
-                        <Reveal key={role} delay={0.05 * idx}>
-                            <div className="border border-white/10 p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 hover:border-primary/50 transition-colors bg-black/50">
+                        <MarketingPanel key={role} delay={ROLE_STAGGER_DELAY * idx} hoverEffect spotlight>
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                                 <div>
                                     <h3 className="text-xl font-black text-white uppercase mb-2">{role}</h3>
                                     <div className="flex gap-4 text-xs font-mono text-muted uppercase">
@@ -27,7 +29,7 @@ export default function CareersPage() {
                                 </div>
                                 <Button variant="secondary">Apply Now</Button>
                             </div>
-                        </Reveal>
+                        </MarketingPanel>
                     ))}
                 </div>
             </div>
