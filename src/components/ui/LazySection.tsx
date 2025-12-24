@@ -1,65 +1,30 @@
-'use client';
-
-import React, { useRef, useState, useEffect, Suspense } from 'react';
+import type { ReactNode } from 'react';
 
 interface LazySectionProps {
-    children: React.ReactNode;
+    children: ReactNode;
     className?: string;
     /** Placeholder height while loading */
     minHeight?: string;
-    /** Root margin for intersection observer */
-    rootMargin?: string;
 }
 
 /**
- * Lazy loads children when they come into view.
- * Uses content-visibility for additional performance.
+ * Uses content-visibility to defer rendering work until the section is near viewport.
  */
-export const LazySection: React.FC<LazySectionProps> = ({
+export function LazySection({
     children,
     className,
     minHeight = '400px',
-    rootMargin = '200px',
-}) => {
-    const ref = useRef<HTMLDivElement>(null);
-    const [isVisible, setIsVisible] = useState(false);
-
-    useEffect(() => {
-        const element = ref.current;
-        if (!element) return;
-
-        const observer = new IntersectionObserver(
-            ([entry]) => {
-                if (entry.isIntersecting) {
-                    setIsVisible(true);
-                    observer.disconnect();
-                }
-            },
-            { rootMargin }
-        );
-
-        observer.observe(element);
-
-        return () => observer.disconnect();
-    }, [rootMargin]);
-
+}: LazySectionProps) {
     return (
         <div
-            ref={ref}
             className={className}
             style={{
-                minHeight: isVisible ? undefined : minHeight,
-                contentVisibility: isVisible ? 'visible' : 'auto',
-                containIntrinsicSize: isVisible ? undefined : `0 ${minHeight}`,
+                minHeight,
+                contentVisibility: 'auto',
+                containIntrinsicSize: `0 ${minHeight}`,
             }}
         >
-            {isVisible ? (
-                <Suspense fallback={<div style={{ minHeight }} />}>
-                    {children}
-                </Suspense>
-            ) : (
-                <div style={{ minHeight }} />
-            )}
+            {children}
         </div>
     );
-};
+}

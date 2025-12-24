@@ -1,13 +1,18 @@
 import Link from 'next/link';
 import { RippleBackground } from '@/components/ui/RippleBackground';
 import { BackButton } from '@/components/ui/BackButton';
-import { motion } from 'framer-motion';
+import { createRevealStyle, REVEAL_CLASSNAME } from '@/lib/reveal';
 
 interface AuthLayoutProps {
     children: React.ReactNode;
     title: string;
     subtitle: string;
 }
+
+const AUTH_REVEAL_DELAYS = {
+    form: 0,
+    visual: 0.2,
+};
 
 export default function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
     return (
@@ -33,16 +38,14 @@ export default function AuthLayout({ children, title, subtitle }: AuthLayoutProp
                 </div>
 
                 <div className="flex-1 flex flex-col justify-center max-w-[400px] w-full mx-auto relative z-10 py-10">
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5 }}
-                        className="w-full"
+                    <div
+                        className={`${REVEAL_CLASSNAME} w-full`}
+                        style={createRevealStyle(AUTH_REVEAL_DELAYS.form)}
                     >
                         <h1 className="font-mono text-2xl md:text-3xl font-black mb-2 tracking-tighter uppercase text-white">{title}</h1>
                         <p className="font-mono text-muted mb-6 text-xs uppercase tracking-wider leading-relaxed">{subtitle}</p>
                         {children}
-                    </motion.div>
+                    </div>
                 </div>
 
                 <div className="mt-auto pt-4 relative z-10 shrink-0">
@@ -59,11 +62,9 @@ export default function AuthLayout({ children, title, subtitle }: AuthLayoutProp
                 <div className="absolute inset-0 bg-gradient-to-r from-black via-transparent to-transparent z-10" />
 
                 <div className="relative z-20 max-w-xl p-12">
-                    <motion.div
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.8, delay: 0.2 }}
-                        className="border-l-2 border-primary pl-8 backdrop-blur-sm bg-black/30 p-8 rounded-r-xl border-y border-r border-white/10"
+                    <div
+                        className={`${REVEAL_CLASSNAME} border-l-2 border-primary pl-8 backdrop-blur-sm bg-black/30 p-8 rounded-r-xl border-y border-r border-white/10`}
+                        style={createRevealStyle(AUTH_REVEAL_DELAYS.visual)}
                     >
                         <h2 className="font-mono text-5xl font-black mb-6 text-white uppercase leading-[0.9] tracking-tighter">
                             Intelligence<br />
@@ -72,7 +73,7 @@ export default function AuthLayout({ children, title, subtitle }: AuthLayoutProp
                         <p className="font-mono text-lg text-muted leading-relaxed uppercase">
                             Join the network of operatives building the future of data analysis.
                         </p>
-                    </motion.div>
+                    </div>
                 </div>
             </div>
         </div>

@@ -7,10 +7,10 @@ export default function Home() {
   return (
     <>
       <Hero />
-      <LazySection minHeight="600px" rootMargin="100px">
+      <LazySection minHeight="600px">
         <Features />
       </LazySection>
-      <LazySection minHeight="500px" rootMargin="100px">
+      <LazySection minHeight="500px">
         <Pricing />
       </LazySection>
     </>

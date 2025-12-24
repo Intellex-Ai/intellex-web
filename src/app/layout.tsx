@@ -4,9 +4,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import { RecoveryRedirect } from "@/components/auth/RecoveryRedirect";
-import { DeviceRevocationWatcher } from "@/components/auth/DeviceRevocationWatcher";
 import { PWAProvider } from "@/components/pwa/PWAProvider";
-import { ToastProvider } from "@/components/ui/ToastProvider";
 import { metadataBaseUrl } from "@/lib/site-url";
 
 const inter = Inter({
@@ -105,15 +103,11 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className={`${inter.variable} ${jetbrainsMono.variable} antialiased`} suppressHydrationWarning>
-        <PWAProvider>
-          <ToastProvider>
-            <RecoveryRedirect />
-            <DeviceRevocationWatcher />
-            {children}
-            <Analytics />
-            <SpeedInsights />
-          </ToastProvider>
-        </PWAProvider>
+        <PWAProvider />
+        <RecoveryRedirect />
+        {children}
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

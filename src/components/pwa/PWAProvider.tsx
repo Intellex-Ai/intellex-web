@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-export function PWAProvider({ children }: { children: React.ReactNode }) {
+export function PWAProvider({ children }: { children?: React.ReactNode }) {
   useEffect(() => {
     const shouldRegister =
       typeof window !== "undefined" &&

@@ -1,10 +1,8 @@
-"use client";
-
 import clsx from 'clsx';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Check } from 'lucide-react';
-import { Reveal } from '@/components/ui/Reveal';
+import { createRevealStyle, REVEAL_SCROLL_CLASSNAME, REVEAL_SCROLL_DATA_VALUE } from '@/lib/reveal';
 
 const plans = [
     {
@@ -52,6 +50,7 @@ const plans = [
 ];
 
 const PLAN_STAGGER_DELAY = 0.08;
+const HEADER_REVEAL_DELAY = 0;
 
 export default function Pricing() {
     return (
@@ -60,19 +59,28 @@ export default function Pricing() {
 
             <div className="container mx-auto px-6 relative z-10 max-w-7xl">
                 {/* Header */}
-                <Reveal className="text-center mb-16">
+                <div
+                    className={`${REVEAL_SCROLL_CLASSNAME} text-center mb-16`}
+                    style={createRevealStyle(HEADER_REVEAL_DELAY)}
+                    data-reveal={REVEAL_SCROLL_DATA_VALUE}
+                >
                     <h2 className="font-mono text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black mb-4 tracking-tight sm:tracking-tighter uppercase text-white break-words">
                         SIMPLE_TRANSPARENT_<br className="block sm:hidden" />PRICING
                     </h2>
                     <p className="font-mono text-muted text-sm md:text-base uppercase tracking-wider">
                         CHOOSE_YOUR_PROTOCOL. NO_HIDDEN_FEES.
                     </p>
-                </Reveal>
+                </div>
 
                 {/* Cards Grid */}
                 <div className="grid md:grid-cols-3 sm:grid-cols-1 gap-6">
                     {plans.map((plan, index) => (
-                        <Reveal key={index} delay={PLAN_STAGGER_DELAY * index}>
+                        <div
+                            key={index}
+                            className={REVEAL_SCROLL_CLASSNAME}
+                            style={createRevealStyle(PLAN_STAGGER_DELAY * index)}
+                            data-reveal={REVEAL_SCROLL_DATA_VALUE}
+                        >
                             <div className="transition-transform duration-300 will-change-transform hover:-translate-y-1">
                                 <div
                                     className={clsx(
@@ -123,7 +131,7 @@ export default function Pricing() {
                                     </div>
                                 </div>
                             </div>
-                        </Reveal>
+                        </div>
                     ))}
                 </div>
             </div>

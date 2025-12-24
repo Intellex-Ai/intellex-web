@@ -33,6 +33,11 @@ const DPR_MEDIUM = 1.5;
 const FALLBACK_DPR = 1;
 const START_IDLE_TIMEOUT_MS = 800;
 const START_IDLE_FALLBACK_MS = 200;
+const IN_VIEW_THRESHOLD = 0.1;
+const ACTIVE_WINDOW_MS = 9000;
+const ACTIVITY_THROTTLE_MS = 500;
+const PASSIVE_ACTIVITY_EVENTS: Array<keyof WindowEventMap> = ['scroll', 'touchstart'];
+const ACTIVE_ACTIVITY_EVENTS: Array<keyof WindowEventMap> = ['pointermove', 'keydown'];
 const CANVAS_CLASSNAME = 'absolute inset-0 w-full h-full';
 const CANVAS_STYLE = { willChange: 'transform' } as const;
 
@@ -67,6 +72,11 @@ export const RippleBackgroundCanvas = () => {
         let time = 0;
         let lastFrameTime = 0;
         let isActive = true;
+        let isInView = true;
+        let isDocumentVisible = !document.hidden;
+        let isIdlePaused = false;
+        let idlePauseTimeoutId: number | null = null;
+        let lastActivityTime = 0;
         let startTimeoutId: number | null = null;
         let idleCallbackId: number | null = null;
 
@@ -218,32 +228,90 @@ export const RippleBackgroundCanvas = () => {
             resize();
         };
 
-        const handleVisibilityChange = () => {
-            if (document.hidden) {
-                isActive = false;
+        const updateActivityState = () => {
+            const shouldBeActive = isDocumentVisible && isInView && !isIdlePaused;
+            if (shouldBeActive === isActive) return;
+
+            isActive = shouldBeActive;
+            if (!isActive) {
                 stopAnimation();
                 return;
             }
-            if (!isActive) {
-                isActive = true;
-                lastFrameTime = 0;
-                scheduleStart();
+            lastFrameTime = 0;
+            scheduleStart();
+        };
+
+        const scheduleIdlePause = () => {
+            if (idlePauseTimeoutId !== null) {
+                window.clearTimeout(idlePauseTimeoutId);
             }
+            idlePauseTimeoutId = window.setTimeout(() => {
+                isIdlePaused = true;
+                updateActivityState();
+            }, ACTIVE_WINDOW_MS);
+        };
+
+        const handleUserActivity = () => {
+            const now = Date.now();
+            if (now - lastActivityTime < ACTIVITY_THROTTLE_MS) return;
+            lastActivityTime = now;
+
+            if (isIdlePaused) {
+                isIdlePaused = false;
+                updateActivityState();
+            }
+            scheduleIdlePause();
+        };
+
+        const handleVisibilityChange = () => {
+            isDocumentVisible = !document.hidden;
+            updateActivityState();
+        };
+
+        const handleIntersection: IntersectionObserverCallback = (entries) => {
+            isInView = Boolean(entries[0]?.isIntersecting);
+            updateActivityState();
         };
 
         window.addEventListener('resize', handleResize);
         document.addEventListener('visibilitychange', handleVisibilityChange);
+        PASSIVE_ACTIVITY_EVENTS.forEach((eventName) => {
+            window.addEventListener(eventName, handleUserActivity, { passive: true });
+        });
+        ACTIVE_ACTIVITY_EVENTS.forEach((eventName) => {
+            window.addEventListener(eventName, handleUserActivity);
+        });
+        const intersectionObserver =
+            typeof IntersectionObserver !== 'undefined'
+                ? new IntersectionObserver(handleIntersection, { threshold: IN_VIEW_THRESHOLD })
+                : null;
+        if (intersectionObserver) {
+            intersectionObserver.observe(canvas);
+        }
         resize();
         scheduleStart();
+        scheduleIdlePause();
 
         return () => {
             window.removeEventListener('resize', handleResize);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
+            PASSIVE_ACTIVITY_EVENTS.forEach((eventName) => {
+                window.removeEventListener(eventName, handleUserActivity);
+            });
+            ACTIVE_ACTIVITY_EVENTS.forEach((eventName) => {
+                window.removeEventListener(eventName, handleUserActivity);
+            });
+            if (intersectionObserver) {
+                intersectionObserver.disconnect();
+            }
             if (idleCallbackId !== null && idleWindow.cancelIdleCallback) {
                 idleWindow.cancelIdleCallback(idleCallbackId);
             }
             if (startTimeoutId !== null) {
                 window.clearTimeout(startTimeoutId);
+            }
+            if (idlePauseTimeoutId !== null) {
+                window.clearTimeout(idlePauseTimeoutId);
             }
             stopAnimation();
         };

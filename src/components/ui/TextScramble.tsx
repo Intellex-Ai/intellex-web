@@ -9,6 +9,7 @@ interface TextScrambleProps {
     className?: string;
     duration?: number;
     delay?: number;
+    deferUntilIdle?: boolean;
 }
 
 const IN_VIEW_THRESHOLD = 0.1;
@@ -18,29 +19,35 @@ const TRANSITION_EASE = [0.23, 1, 0.32, 1] as const;
 const BLUR_TRANSITION_SECONDS = 0.3;
 const OPACITY_TRANSITION_SECONDS = 0.15;
 const PRESERVE_WHITESPACE_STYLE: React.CSSProperties = { whiteSpace: 'pre' };
+const IDLE_DEFER_TIMEOUT_MS = 1200;
+const IDLE_DEFER_FALLBACK_MS = 300;
 
 export const TextScramble: React.FC<TextScrambleProps> = ({
     text,
     className,
     duration = 2000,
-    delay = 0
+    delay = 0,
+    deferUntilIdle = false,
 }) => {
     const [visibleChars, setVisibleChars] = useState(0);
     const [isInView, setIsInView] = useState(false);
+    const [deferReady, setDeferReady] = useState(false);
     const elementRef = useRef<HTMLSpanElement>(null);
     const { isLowEnd, prefersReducedMotion, level } = useDevicePerformance();
 
     // Skip animation for low-end devices or reduced motion preference
     const shouldAnimate = !isLowEnd && !prefersReducedMotion;
+    const shouldDefer = deferUntilIdle && shouldAnimate;
+    const canAnimate = shouldAnimate && (!shouldDefer || deferReady);
 
     // Use blur effect only on high-end devices
     const useBlur = level === 'high';
 
     useEffect(() => {
-        if (!shouldAnimate) return;
+        if (!canAnimate) return;
         const rafId = requestAnimationFrame(() => setVisibleChars(0));
         return () => cancelAnimationFrame(rafId);
-    }, [shouldAnimate, text]);
+    }, [canAnimate, text]);
 
     useEffect(() => {
         if (!shouldAnimate) return;
@@ -63,7 +70,7 @@ export const TextScramble: React.FC<TextScrambleProps> = ({
     }, [isInView, shouldAnimate, text.length]);
 
     useEffect(() => {
-        if (!shouldAnimate || !isInView) return;
+        if (!shouldAnimate || !isInView || !canAnimate) return;
 
         const totalChars = text.length;
         if (totalChars === 0) return;
@@ -90,10 +97,37 @@ export const TextScramble: React.FC<TextScrambleProps> = ({
             clearTimeout(timeoutId);
             if (intervalId) clearInterval(intervalId);
         };
-    }, [isInView, text, duration, delay, shouldAnimate]);
+    }, [isInView, text, duration, delay, shouldAnimate, canAnimate]);
+
+    useEffect(() => {
+        if (!shouldDefer) return;
+        const idleWindow = window as Window & {
+            requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
+            cancelIdleCallback?: (handle: number) => void;
+        };
+        let timeoutId: number | null = null;
+        let idleCallbackId: number | null = null;
+
+        const start = () => setDeferReady(true);
+
+        if (idleWindow.requestIdleCallback) {
+            idleCallbackId = idleWindow.requestIdleCallback(start, { timeout: IDLE_DEFER_TIMEOUT_MS });
+        } else {
+            timeoutId = window.setTimeout(start, IDLE_DEFER_FALLBACK_MS);
+        }
+
+        return () => {
+            if (idleCallbackId !== null && idleWindow.cancelIdleCallback) {
+                idleWindow.cancelIdleCallback(idleCallbackId);
+            }
+            if (timeoutId !== null) {
+                window.clearTimeout(timeoutId);
+            }
+        };
+    }, [shouldDefer, text]);
 
     // For low-end or reduced motion, render plain text immediately
-    if (!shouldAnimate) {
+    if (!shouldAnimate || !canAnimate) {
         return (
             <span ref={elementRef} className={className} style={PRESERVE_WHITESPACE_STYLE}>
                 {text}

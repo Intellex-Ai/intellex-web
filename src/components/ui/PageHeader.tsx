@@ -1,7 +1,5 @@
-"use client";
-
 import { BackButton } from '@/components/ui/BackButton';
-import { Reveal } from '@/components/ui/Reveal';
+import { createRevealStyle, REVEAL_CLASSNAME } from '@/lib/reveal';
 
 interface PageHeaderProps {
     title: string;
@@ -30,24 +28,29 @@ export default function PageHeader({ title, description, badge }: PageHeaderProp
                 </div>
 
                 {badge && (
-                    <Reveal delay={HEADER_REVEAL_DELAYS.badge}>
+                    <div
+                        className={REVEAL_CLASSNAME}
+                        style={createRevealStyle(HEADER_REVEAL_DELAYS.badge)}
+                    >
                         <div className="inline-block mb-6 px-3 py-1 border border-primary/30 bg-primary/10 rounded-full">
                             <span className="font-mono text-xs text-primary uppercase tracking-wider">{badge}</span>
                         </div>
-                    </Reveal>
+                    </div>
                 )}
 
-                <Reveal delay={HEADER_REVEAL_DELAYS.title}>
-                    <h1 className="text-5xl md:text-7xl font-black text-white mb-6 tracking-tighter uppercase">
-                        {title}
-                    </h1>
-                </Reveal>
+                <h1
+                    className={`${REVEAL_CLASSNAME} text-5xl md:text-7xl font-black text-white mb-6 tracking-tighter uppercase`}
+                    style={createRevealStyle(HEADER_REVEAL_DELAYS.title)}
+                >
+                    {title}
+                </h1>
 
-                <Reveal delay={HEADER_REVEAL_DELAYS.description}>
-                    <p className="text-lg md:text-xl text-muted font-mono uppercase leading-relaxed max-w-2xl mx-auto">
-                        {description}
-                    </p>
-                </Reveal>
+                <p
+                    className={`${REVEAL_CLASSNAME} text-lg md:text-xl text-muted font-mono uppercase leading-relaxed max-w-2xl mx-auto`}
+                    style={createRevealStyle(HEADER_REVEAL_DELAYS.description)}
+                >
+                    {description}
+                </p>
             </div>
         </section>
     );
